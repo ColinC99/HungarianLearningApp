@@ -2,13 +2,14 @@
 
 import { buildDeck, POS_LABEL } from './deck.js';
 import * as S from './scheduler.js';
+import { buildChoices } from './choices.js';
 import { loadState, saveState, freshState, normalizeState, requestPersistence, backupBlob } from './store.js';
 import { h, dayKey, fmtHours, fold, showEn } from './util.js';
 import { checkTyped } from './check.js';
 import { initSpeech, speak, speechSupported, hasHungarianVoice } from './speech.js';
 import { ICON } from './icons.js';
 
-const APP_VERSION = '1.0.0';
+const APP_VERSION = '1.1.0';
 
 const deck = buildDeck();
 if (deck.problems.length) console.warn('Deck problems:', deck.problems);
@@ -36,11 +37,14 @@ const MODES = [
 
 const ui = {
   tab: tabFromHash(),
-  pick: null,
-  revealed: false,
+  pick: null, // { card, reason }
+  options: [], // multiple-choice options for the current card
+  choice: -1, // index of the option you tapped
+  answered: false,
+  lastGrade: 0, // 0 missed, 1 got it, 2 too easy
   typed: '',
-  result: null,
-  undo: null,
+  result: null, // typed-answer check result
+  undo: null, // snapshot of the last answer (for Undo, "Too easy" and "I guessed")
   enter: true,
   words: { q: '', filter: 'all', view: 'words', limit: 80, open: null, openSkill: null },
 };
@@ -53,6 +57,7 @@ function tabFromHash() {
 }
 
 const todayStats = () => state.days[dayKey()] || [0, 0, 0];
+const isTyping = (card) => state.settings.answerMode === 'type' && !!card.answers;
 
 function streak() {
   let n = 0;
@@ -67,13 +72,10 @@ function streak() {
 
 let toastTimer = 0;
 function toast(msg, action) {
-  toastEl.replaceChildren(
-    h('span', {}, msg),
-    action ? h('button', { class: 'toast-btn', onClick: action.fn }, action.label) : null,
-  );
+  toastEl.replaceChildren(h('span', {}, msg), action ? h('button', { class: 'toast-btn', onClick: action.fn }, action.label) : null);
   toastEl.classList.add('show');
   clearTimeout(toastTimer);
-  toastTimer = setTimeout(() => toastEl.classList.remove('show'), action ? 10000 : 3500);
+  toastTimer = setTimeout(() => toastEl.classList.remove('show'), action ? 10000 : 4000);
 }
 
 function speakBtn(text) {
@@ -96,63 +98,36 @@ function autoSpeak(text) {
 
 function focusInput() {
   const el = document.getElementById('answer-input');
-  if (el && !ui.revealed) el.focus({ preventScroll: true });
+  if (el && !ui.answered) el.focus({ preventScroll: true });
 }
 
 // ---------------------------------------------------------------- study logic
 
 function nextCard() {
   ui.pick = S.choose(deck, state, ses, Date.now());
-  ui.revealed = false;
+  ui.answered = false;
+  ui.choice = -1;
+  ui.lastGrade = 0;
   ui.typed = '';
   ui.result = null;
   ui.enter = true;
+  ui.options = ui.pick && !isTyping(ui.pick.card) ? buildChoices(ui.pick.card, deck, state) : [];
   if (ui.pick && ui.pick.card.q.lang === 'hu') autoSpeak(ui.pick.card.q.text);
 }
 
-function reveal() {
-  if (!ui.pick || ui.revealed) return;
-  ui.revealed = true;
-  if (ui.pick.card.a.lang === 'hu') autoSpeak(ui.pick.card.a.text);
-  render();
-}
-
-function answer(g) {
-  const pick = ui.pick;
-  if (!pick) return;
-  const card = pick.card;
-  const t = Date.now();
-  const prev = state.cards[card.id];
-  const dk = dayKey(t);
-  ui.undo = {
-    pick,
-    prev: prev ? { ...prev } : null,
+function snapshot(card) {
+  const dk = dayKey();
+  return {
+    pick: ui.pick,
+    prev: state.cards[card.id] ? { ...state.cards[card.id] } : null,
     day: state.days[dk] ? [...state.days[dk]] : null,
     dk,
     ses: structuredClone(ses),
+    mix: state.mix[card.id] ? { ...state.mix[card.id] } : null,
   };
-  state.cards[card.id] = S.gradeCard(prev, g, t, card.prior);
-  state.log.push([t, card.id, g, prev ? 0 : 1]);
-  const day = state.days[dk] ? [...state.days[dk]] : [0, 0, 0];
-  day[0]++;
-  if (g > 0) day[1]++;
-  if (!prev) day[2]++;
-  state.days[dk] = day;
-  S.afterAnswer(ses, state, card, g, Math.random, pick.reason ? pick.reason.type : '');
-  if (!saveState(state)) toast('Could not save progress — is storage full?');
-  if (!persistAsked) {
-    persistAsked = true;
-    requestPersistence();
-  }
-  if (day[0] === Number(state.settings.goal)) toast(`Daily goal reached: ${day[0]} cards! Keep going if you like.`);
-  nextCard();
-  render();
-  focusInput();
 }
 
-function undo() {
-  const u = ui.undo;
-  if (!u) return;
+function restore(u) {
   const id = u.pick.card.id;
   if (u.prev) state.cards[id] = u.prev;
   else delete state.cards[id];
@@ -160,31 +135,112 @@ function undo() {
   else delete state.days[u.dk];
   const last = state.log[state.log.length - 1];
   if (last && last[1] === id) state.log.pop();
-  ses = u.ses;
-  ui.pick = u.pick;
-  ui.revealed = true;
-  ui.result = null;
-  ui.typed = '';
-  ui.enter = false;
-  ui.undo = null;
-  saveState(state);
+  if (u.mix) state.mix[id] = u.mix;
+  else delete state.mix[id];
+  ses = structuredClone(u.ses);
+}
+
+function apply(card, g, wrongOption) {
+  const t = Date.now();
+  const prev = state.cards[card.id];
+  state.cards[card.id] = S.gradeCard(prev, g, t, card.prior, !isTyping(card));
+  state.log.push([t, card.id, g, prev ? 0 : 1]);
+  const dk = dayKey(t);
+  const day = state.days[dk] ? [...state.days[dk]] : [0, 0, 0];
+  day[0]++;
+  if (g > 0) day[1]++;
+  if (!prev) day[2]++;
+  state.days[dk] = day;
+  S.afterAnswer(ses, state, card, g, Math.random, ui.pick && ui.pick.reason ? ui.pick.reason.type : '');
+  if (wrongOption) S.noteMixUp(ses, state, card, wrongOption);
+  ui.lastGrade = g;
+  if (!saveState(state)) toast('Could not save progress — is storage full?');
+  return day;
+}
+
+/** Grade the current card right away (so nothing is lost if the app closes). */
+function record(g, wrongOption) {
+  const card = ui.pick.card;
+  const before = S.levelProgress(deck, state.cards, state.levelFloor).open;
+  ui.undo = snapshot(card);
+  const day = apply(card, g, wrongOption);
+  if (!persistAsked) {
+    persistAsked = true;
+    requestPersistence();
+  }
+  const after = S.levelProgress(deck, state.cards, state.levelFloor).open;
+  const L = S.LEVELS.find((x) => x.level === after);
+  if (after > before && L) toast(`Level ${after} · ${L.name} unlocked — harder words are on the way!`);
+  else if (day[0] === Number(state.settings.goal)) toast(`Daily goal reached: ${day[0]} cards! Keep going if you like.`);
+}
+
+/** Change the grade of the answer just given ("Too easy", "I guessed", "I was right"). */
+function amend(g) {
+  const u = ui.undo;
+  if (!u) return;
+  restore(u);
+  apply(u.pick.card, g, null);
+}
+
+function pickOption(i) {
+  const o = ui.options[i];
+  if (!ui.pick || !o) return;
+  if (ui.answered) {
+    if (o.lang === 'hu' && state.settings.speech !== 'off') speak(o.text); // tap an option afterwards to hear it
+    return;
+  }
+  ui.choice = i;
+  ui.answered = true;
+  record(o.correct ? 1 : 0, o.correct ? null : o);
+  if (ui.pick.card.a.lang === 'hu') autoSpeak(ui.pick.card.a.text);
   render();
 }
 
+function next() {
+  if (!ui.answered) return;
+  nextCard();
+  render();
+  focusInput();
+}
+
+function amendAndNext(g) {
+  amend(g);
+  next();
+}
+
+function undo() {
+  const u = ui.undo;
+  if (!u) return;
+  restore(u);
+  saveState(state);
+  ui.pick = u.pick;
+  ui.answered = false;
+  ui.choice = -1;
+  ui.result = null;
+  ui.typed = '';
+  ui.enter = false;
+  ui.options = isTyping(u.pick.card) ? [] : buildChoices(u.pick.card, deck, state);
+  ui.undo = null;
+  render();
+  focusInput();
+}
+
 function submitTyped() {
-  if (!ui.pick || ui.revealed) return;
+  if (!ui.pick || ui.answered) return;
   const res = checkTyped(ui.typed, ui.pick.card, deck);
   if (res.kind === 'empty') return giveUp();
   ui.result = res;
-  ui.revealed = true;
+  ui.answered = true;
+  record(res.ok ? 1 : 0, null);
   if (ui.pick.card.a.lang === 'hu') autoSpeak(ui.pick.card.a.text);
   render();
 }
 
 function giveUp() {
-  if (!ui.pick || ui.revealed) return;
+  if (!ui.pick || ui.answered) return;
   ui.result = { ok: false, kind: 'gaveup', typed: '' };
-  ui.revealed = true;
+  ui.answered = true;
+  record(0, null);
   render();
 }
 
@@ -222,8 +278,7 @@ const REASONS = {
 function reasonPill(reason) {
   if (!reason) return null;
   const [cls, label] = REASONS[reason.type] || REASONS.review;
-  const text =
-    reason.type === 'tough' ? `Missed ${reason.misses}×` : reason.type === 'stale' ? `Last seen ${reason.days} days ago` : label;
+  const text = reason.type === 'tough' ? `Missed ${reason.misses}×` : reason.type === 'stale' ? `Last seen ${reason.days} days ago` : label;
   return h('span', { class: `pill ${cls}` }, text);
 }
 
@@ -235,9 +290,11 @@ function studyView() {
     return wrap;
   }
   const { card, reason } = ui.pick;
-  const cs = state.cards[card.id];
-  const typing = state.settings.answerMode === 'type' && !!card.answers;
-  wrap.append(cardView(card, cs, reason, typing), actionsView(typing));
+  const typing = isTyping(card);
+  wrap.append(promptCard(card, reason));
+  if (!typing) wrap.append(optionList());
+  else if (!ui.answered) wrap.append(typeArea());
+  if (ui.answered) wrap.append(detailsPanel(card, reason), nextBar(typing));
   return wrap;
 }
 
@@ -245,9 +302,7 @@ function modeBar() {
   return h(
     'div',
     { class: 'modes' },
-    MODES.map(([k, label]) =>
-      h('button', { class: `mode ${ses.mode === k ? 'on' : ''}`, onClick: () => setMode(k), 'aria-pressed': String(ses.mode === k) }, label),
-    ),
+    MODES.map(([k, label]) => h('button', { class: `mode ${ses.mode === k ? 'on' : ''}`, onClick: () => setMode(k), 'aria-pressed': String(ses.mode === k) }, label)),
   );
 }
 
@@ -255,20 +310,15 @@ function emptyView() {
   const msg =
     ses.mode === 'mistakes'
       ? ['No mistakes to drill yet.', 'Switch to Smart mix and go make some — that’s how this works.']
-      : ['Nothing left to show here.', 'Try another mode or change the word directions in Settings.'];
+      : ['Nothing to show right now.', 'New material unlocks as you master what you’ve met. Try Smart mix or check Progress → Levels.'];
   return h('div', { class: 'empty card' }, h('h2', {}, msg[0]), h('p', {}, msg[1]));
 }
 
-function cardView(card, cs, reason, typing) {
+function promptCard(card, reason) {
   const q = card.q;
   const el = h(
     'article',
-    {
-      class: `card kind-${card.kind} ${ui.revealed ? 'revealed' : ''} ${ui.enter ? 'enter' : ''}`,
-      onClick: () => {
-        if (!typing && !ui.revealed) reveal();
-      },
-    },
+    { class: `card prompt-card ${ui.enter ? 'enter' : ''}` },
     h('div', { class: 'card-top' }, h('span', { class: 'kind' }, card.label), reasonPill(reason)),
     h(
       'div',
@@ -278,10 +328,32 @@ function cardView(card, cs, reason, typing) {
       q.cue ? h('div', { class: 'q-cue' }, q.cue) : null,
       q.hint ? h('div', { class: 'q-hint' }, q.hint) : null,
     ),
-    ui.revealed ? answerView(card, cs, reason) : typing ? null : h('div', { class: 'tap-hint' }, 'Tap the card to reveal'),
   );
   ui.enter = false;
   return el;
+}
+
+function optionList() {
+  return h(
+    'div',
+    { class: `options ${ui.answered ? 'done' : ''}` },
+    ui.options.map((o, i) => {
+      const st = !ui.answered ? '' : o.correct ? 'right' : i === ui.choice ? 'wrong' : 'other';
+      const gloss = ui.answered && !o.correct ? (o.wrong ? `✗ ${o.why || 'incorrect'}` : o.gloss ? `= ${o.gloss}` : '') : '';
+      const mark = !ui.answered ? String(i + 1) : o.correct ? h('span', { html: ICON.check }) : i === ui.choice ? h('span', { html: ICON.cross }) : String(i + 1);
+      return h(
+        'button',
+        { class: `option ${st}`, type: 'button', onClick: () => pickOption(i) },
+        h('span', { class: 'opt-key' }, mark),
+        h(
+          'span',
+          { class: 'opt-body' },
+          h('span', { class: 'opt-text', lang: o.lang }, o.text),
+          gloss ? h('span', { class: `opt-gloss ${o.wrong ? 'is-wrong' : ''}`, lang: o.wrong ? null : o.glossLang }, gloss) : null,
+        ),
+      );
+    }),
+  );
 }
 
 function resultBanner(r) {
@@ -297,68 +369,57 @@ function resultBanner(r) {
   return h('div', { class: `result ${cls}` }, text);
 }
 
-function answerView(card, cs, reason) {
+function detailsPanel(card, reason) {
   const a = card.a;
+  const cs = state.cards[card.id];
   const looks = (card.word && card.word.lookalikes) || [];
   const fromCard = reason && reason.type === 'confuse' ? deck.byId.get(reason.from) : null;
+  const ok = ui.lastGrade > 0;
+  const right = ui.options.find((o) => o.correct);
+  // In multiple choice the right answer is already highlighted; only repeat it if there's more to it.
+  const showAnswer = ui.result || !right || right.text !== a.text;
+  const firstTime = ui.undo && !ui.undo.prev;
   return h(
     'div',
-    { class: 'answer' },
-    ui.result ? resultBanner(ui.result) : null,
-    h('div', { class: `a-text ${a.text.length > 28 ? 'long' : ''}`, lang: a.lang }, a.text, a.lang === 'hu' ? speakBtn(a.text) : null),
+    { class: `details ${ok ? 'ok' : 'bad'}` },
+    ui.result ? resultBanner(ui.result) : h('div', { class: `verdict ${ok ? 'ok' : 'bad'}` }, ok ? '✓ Correct!' : '✗ Not quite'),
+    showAnswer ? h('div', { class: `a-text ${a.text.length > 28 ? 'long' : ''}`, lang: a.lang }, a.text, a.lang === 'hu' ? speakBtn(a.text) : null) : null,
+    !showAnswer && a.lang === 'hu' ? h('div', { class: 'a-say', lang: 'hu' }, a.text, speakBtn(a.text)) : null,
+    ok && firstTime && !ui.result ? h('div', { class: 'tip' }, 'Knew it already? Tap “Too easy” — it skips the card for weeks and unlocks the next level sooner.') : null,
     a.sub ? h('div', { class: 'a-sub' }, a.sub) : null,
     a.note ? h('div', { class: 'a-note' }, a.note) : null,
     fromCard ? h('div', { class: 'a-looks' }, `Mix-up alert: you just had “${fromCard.word ? fromCard.word.hu : fromCard.q.text}”.`) : null,
-    looks.length
-      ? h('div', { class: 'a-looks' }, 'Don’t mix up with: ', looks.map((w, i) => [i ? ', ' : '', h('b', { lang: 'hu' }, w.hu), ` (${showEn(w.en).split(',')[0]})`]))
-      : null,
+    looks.length ? h('div', { class: 'a-looks' }, 'Don’t mix up with: ', looks.map((w, i) => [i ? ', ' : '', h('b', { lang: 'hu' }, w.hu), ` (${showEn(w.en).split(',')[0]})`])) : null,
     h('div', { class: 'a-meta' }, metaLine(card, cs)),
   );
 }
 
 function metaLine(card, cs) {
   const where = card.kind === 'vocab' ? `${card.topic} · level ${card.level}` : skillTitle(card.skill);
-  if (!cs) return `First time you’ve seen this · ${where}`;
+  if (!cs) return where;
   return `Seen ${cs.n}× · missed ${cs.w}× · memory ≈ ${fmtHours(cs.h)} · ${where}`;
 }
 
-const skillTitle = (id) => (deck.skills.find((s) => s.id === id) || {}).title || '';
+const skillTitle = (id) => (deck.skillById.get(id) || {}).title || '';
 
-function actionsView(typing) {
-  if (!ui.revealed) {
-    if (typing) return typeArea();
-    return h('div', { class: 'actions' }, h('button', { class: 'btn primary big', onClick: reveal }, 'Show answer'));
-  }
-  if (typing && ui.result) {
-    if (ui.result.ok) {
-      return h(
-        'div',
-        { class: 'actions' },
-        h(
-          'div',
-          { class: 'grades two' },
-          h('button', { class: 'btn good', onClick: () => answer(1) }, 'Got it'),
-          h('button', { class: 'btn easy', onClick: () => answer(2) }, 'Easy'),
-        ),
-        h('button', { class: 'link', onClick: () => answer(0) }, 'Actually, count it as wrong'),
-      );
-    }
-    return h(
-      'div',
-      { class: 'actions' },
-      h('button', { class: 'btn missed big', onClick: () => answer(0) }, 'Continue'),
-      ui.result.kind !== 'gaveup' ? h('button', { class: 'link', onClick: () => answer(1) }, 'I was right — count it') : null,
-    );
+function nextBar(typing) {
+  const ok = ui.lastGrade > 0;
+  const side = [];
+  const mini = (label, g, title) => h('button', { class: 'btn ghost mini', title, onClick: () => amendAndNext(g) }, label);
+  if (ok) {
+    side.push(mini('Too easy', 2, 'I knew it well — skip it for weeks'));
+    side.push(typing ? mini('Count wrong', 0, 'Count this answer as wrong') : mini('I guessed', 0, 'I didn’t really know it — count it as a miss'));
+  } else if (typing && ui.result && ui.result.kind !== 'gaveup') {
+    side.push(mini('I was right', 1, 'Count this answer as correct'));
   }
   return h(
     'div',
     { class: 'actions' },
     h(
       'div',
-      { class: 'grades' },
-      h('button', { class: 'btn missed', onClick: () => answer(0) }, 'Missed'),
-      h('button', { class: 'btn good', onClick: () => answer(1) }, 'Got it'),
-      h('button', { class: 'btn easy', onClick: () => answer(2) }, 'Easy'),
+      { class: `next-row n${side.length}` },
+      side,
+      h('button', { class: `btn ${ok ? 'good' : 'primary'} next`, onClick: next }, 'Next →'),
     ),
   );
 }
@@ -387,9 +448,7 @@ function typeArea() {
   const accents = h(
     'div',
     { class: 'accents' },
-    [...'áéíóöőúüű'].map((ch) =>
-      h('button', { class: 'accent', type: 'button', tabindex: '-1', onPointerdown: (e) => e.preventDefault(), onClick: () => insertChar(input, ch) }, ch),
-    ),
+    [...'áéíóöőúüű'].map((ch) => h('button', { class: 'accent', type: 'button', tabindex: '-1', onPointerdown: (e) => e.preventDefault(), onClick: () => insertChar(input, ch) }, ch)),
   );
   return h(
     'div',
@@ -421,7 +480,57 @@ function masteryRow(title, m) {
     { class: 'mrow' },
     h('div', { class: 'mrow-head' }, h('span', {}, title), h('span', { class: 'muted' }, `${met.toLocaleString()} / ${(met + m.new).toLocaleString()} met`)),
     stackBar(m),
-    h('div', { class: 'mrow-legend' }, h('span', {}, h('i', { class: 'sw strong' }), `${m.strong} strong`), h('span', {}, h('i', { class: 'sw familiar' }), `${m.familiar} familiar`), h('span', {}, h('i', { class: 'sw learning' }), `${m.learning} learning`)),
+    h(
+      'div',
+      { class: 'mrow-legend' },
+      h('span', {}, h('i', { class: 'sw strong' }), `${m.strong} strong`),
+      h('span', {}, h('i', { class: 'sw familiar' }), `${m.familiar} familiar`),
+      h('span', {}, h('i', { class: 'sw learning' }), `${m.learning} learning`),
+    ),
+  );
+}
+
+function unlockLevel(n) {
+  if (!confirm(`Unlock level ${n} now? Its words will start appearing even though the level before it isn’t mastered yet.`)) return;
+  state.levelFloor = n;
+  saveState(state);
+  if (!ui.answered) ui.pick = null;
+  render();
+  toast(`Level ${n} unlocked.`);
+}
+
+function levelsPanel() {
+  const { levels, open } = S.levelProgress(deck, state.cards, state.levelFloor);
+  return h(
+    'div',
+    { class: 'panel' },
+    h('h2', {}, 'Levels'),
+    levels.map((L, k) => {
+      const meta = S.LEVELS.find((x) => x.level === L.level) || { name: '', cefr: '' };
+      const prev = levels[k - 1];
+      const current = L.level === open;
+      return h(
+        'div',
+        { class: `lvl-row ${L.unlocked ? '' : 'locked'}` },
+        h(
+          'div',
+          { class: 'lvl-head' },
+          h('span', { class: 'lvl-badge' }, String(L.level)),
+          h('span', { class: 'lvl-name' }, meta.name, h('span', { class: 'muted' }, ` · ${meta.cefr}`)),
+          L.unlocked ? h('span', { class: `lvl-state ${current ? 'current' : ''}` }, current ? 'Current' : 'Open') : h('span', { class: 'lvl-state', html: ICON.lock }),
+        ),
+        h('div', { class: 'gbar' }, h('span', { style: { width: `${(100 * L.mastered) / (L.total || 1)}%` } })),
+        h(
+          'div',
+          { class: 'lvl-sub muted' },
+          L.unlocked || !prev
+            ? `${L.mastered.toLocaleString()} of ${L.total.toLocaleString()} words mastered · ${L.met.toLocaleString()} met`
+            : `Opens when ${Math.ceil(S.GATE.share * prev.total)} level-${prev.level} words are mastered (now ${prev.mastered})`,
+        ),
+        !L.unlocked && prev && prev.unlocked ? h('button', { class: 'link small', onClick: () => unlockLevel(L.level) }, 'Unlock now anyway') : null,
+      );
+    }),
+    h('p', { class: 'fine' }, `“Mastered” = you’d still remember it in 3 days. A level opens once ${Math.round(S.GATE.share * 100)}% of the level before it is mastered, so harder material arrives only as the basics stick.`),
   );
 }
 
@@ -448,14 +557,8 @@ function statsView() {
     'section',
     { class: 'stats' },
     h('h1', {}, 'Progress'),
-    h(
-      'div',
-      { class: 'tiles' },
-      tile(n, 'cards today'),
-      tile(n ? `${acc}%` : '—', 'accuracy today'),
-      tile(nw, 'new today'),
-      tile(streak(), 'day streak'),
-    ),
+    h('div', { class: 'tiles' }, tile(n, 'cards today'), tile(n ? `${acc}%` : '—', 'accuracy today'), tile(nw, 'new today'), tile(streak(), 'day streak')),
+    levelsPanel(),
     h(
       'div',
       { class: 'panel' },
@@ -520,8 +623,10 @@ function statsView() {
         h('li', {}, h('b', {}, 'Forgetting risk'), ' — the longer since you saw it compared to how strong the memory is, the riskier.'),
         h('li', {}, h('b', {}, 'Your mistake history'), ' — every miss raises a card’s difficulty (it only drops slowly), and difficulty multiplies the risk by up to ~2×.'),
         h('li', {}, h('b', {}, 'Time away'), ' — cards you haven’t seen in a long time get an extra pull back in.'),
-        h('li', {}, h('b', {}, 'Mix-up alerts'), ' — look-alikes (kér/kérdez, hoz/visz, tegnap/holnap…) are shown close together so you have to tell them apart.'),
+        h('li', {}, h('b', {}, 'Tempting wrong answers'), ' — the options are look-alikes, the same verb in another tense, the same word with another ending, and answers you have picked by mistake before.'),
+        h('li', {}, h('b', {}, 'Mix-up alerts'), ' — when you confuse two things (or answer one of a look-alike pair), the other one comes up soon so you have to tell them apart.'),
         h('li', {}, h('b', {}, 'Try again'), ' — anything you miss returns 3–6 cards later until you get it.'),
+        h('li', {}, h('b', {}, 'Levels'), ' — harder words and grammar unlock only as the easier ones become mastered.'),
       ),
       h('p', {}, `New cards come faster when you’re acing things and slow down when you’re struggling, aiming for about ${Math.round(P.target * 100)}% accuracy on “${P.label}”. Change the intensity in Settings.`),
     ),
@@ -583,13 +688,7 @@ function wordDetail(w) {
     w.note ? h('div', { class: 'a-note' }, w.note) : null,
     w.lookalikes ? h('div', {}, h('span', { class: 'muted' }, 'Look-alikes: '), w.lookalikes.map((x) => x.hu).join(', ')) : null,
     h('div', { class: 'muted' }, `${w.topic} · level ${w.level}`),
-    h(
-      'div',
-      { class: 'wstats' },
-      rows.map(([label, cs]) =>
-        h('div', {}, h('b', {}, label), ' ', cs ? `seen ${cs.n}× · missed ${cs.w}× · memory ≈ ${fmtHours(cs.h)}` : 'not started'),
-      ),
-    ),
+    h('div', { class: 'wstats' }, rows.map(([label, cs]) => h('div', {}, h('b', {}, label), ' ', cs ? `seen ${cs.n}× · missed ${cs.w}× · memory ≈ ${fmtHours(cs.h)}` : 'not started'))),
     speechSupported() && state.settings.speech !== 'off'
       ? h('button', { class: 'btn ghost small', onClick: (e) => (e.stopPropagation(), speak(w.hu)) }, h('span', { html: ICON.speaker }), 'Listen')
       : null,
@@ -651,25 +750,36 @@ function refreshWordList() {
 
 function grammarList() {
   const W = ui.words;
+  const { open: openLevel } = S.levelProgress(deck, state.cards, state.levelFloor);
   const skills = [...deck.skills].sort((a, b) => a.level - b.level || a.idx - b.idx);
   return h(
     'ul',
     { class: 'glist' },
     skills.map((s) => {
       const met = s.cards.filter((c) => state.cards[c.id]).length;
-      const open = W.openSkill === s.id;
+      const isOpen = W.openSkill === s.id;
+      const needs = S.skillNeeds(s, deck, state.cards);
+      const lockText = s.level > openLevel ? `Unlocks with level ${s.level}` : needs.length ? `Unlocks after: ${needs.map((n) => n.title).join(', ')}` : '';
       return h(
         'li',
         {
-          class: `grow ${open ? 'open' : ''}`,
+          class: `grow ${isOpen ? 'open' : ''} ${lockText ? 'locked' : ''}`,
           onClick: () => {
-            W.openSkill = open ? null : s.id;
+            W.openSkill = isOpen ? null : s.id;
             render();
           },
         },
-        h('div', { class: 'gline' }, h('span', { class: 'lvl' }, `L${s.level}`), h('b', {}, s.title), h('span', { class: 'muted gcount' }, `${met}/${s.cards.length}`)),
+        h(
+          'div',
+          { class: 'gline' },
+          h('span', { class: 'lvl' }, `L${s.level}`),
+          h('b', {}, s.title),
+          lockText ? h('span', { class: 'lock', html: ICON.lock }) : null,
+          h('span', { class: 'muted gcount' }, `${met}/${s.cards.length}`),
+        ),
         h('div', { class: 'gbar' }, h('span', { style: { width: `${(100 * met) / (s.cards.length || 1)}%` } })),
-        open
+        lockText ? h('div', { class: 'glock muted' }, lockText) : null,
+        isOpen
           ? h(
               'div',
               { class: 'gdetail' },
@@ -748,10 +858,10 @@ const SETTINGS = [
     key: 'answerMode',
     title: 'Answer style',
     options: [
-      ['flip', 'Flip cards'],
+      ['choice', 'Multiple choice'],
       ['type', 'Type answers'],
     ],
-    help: 'Typing is used whenever the answer is Hungarian (English → Hungarian and grammar cards). Hungarian → English cards stay flip cards.',
+    help: 'Typing is the harder option: it’s used whenever the answer is Hungarian (English → Hungarian and grammar cards). Everything else stays multiple choice.',
   },
   {
     key: 'intensity',
@@ -816,7 +926,7 @@ const SETTINGS = [
 function setSetting(key, val) {
   state.settings[key] = val;
   saveState(state);
-  if (key === 'directions' || key === 'mix' || key === 'intensity') ui.pick = null;
+  if (['directions', 'mix', 'intensity', 'answerMode'].includes(key) && !ui.answered) ui.pick = null;
   render();
 }
 
@@ -911,11 +1021,7 @@ function settingsView() {
         'div',
         { class: 'setting' },
         h('div', { class: 'set-title' }, o.title),
-        h(
-          'div',
-          { class: 'seg-ctl' },
-          o.options.map(([v, label]) => h('button', { class: String(s[o.key]) === String(v) ? 'on' : '', onClick: () => setSetting(o.key, v) }, label)),
-        ),
+        h('div', { class: 'seg-ctl' }, o.options.map(([v, label]) => h('button', { class: String(s[o.key]) === String(v) ? 'on' : '', onClick: () => setSetting(o.key, v) }, label))),
         o.help ? h('p', { class: 'fine' }, o.help) : null,
         o.key === 'speech' ? h('p', { class: 'fine' }, voiceLine) : null,
       ),
@@ -984,9 +1090,7 @@ function tabBar() {
   return h(
     'nav',
     { class: 'tabs' },
-    TABS.map(([k, label, icon]) =>
-      h('button', { class: `tab ${ui.tab === k ? 'on' : ''}`, onClick: () => go(k), 'aria-current': ui.tab === k ? 'page' : null }, h('span', { class: 'ti', html: icon }), h('span', {}, label)),
-    ),
+    TABS.map(([k, label, icon]) => h('button', { class: `tab ${ui.tab === k ? 'on' : ''}`, onClick: () => go(k), 'aria-current': ui.tab === k ? 'page' : null }, h('span', { class: 'ti', html: icon }), h('span', {}, label))),
   );
 }
 
@@ -1004,7 +1108,7 @@ function applyTheme() {
   document.querySelectorAll('meta[name="theme-color"]').forEach((m) => m.setAttribute('content', dark ? '#111714' : '#f6f3ee'));
 }
 
-let lastScroll = { tab: null, top: 0 };
+let lastScroll = { tab: null };
 function render() {
   const old = root.querySelector('.screen');
   const keep = old && lastScroll.tab === ui.tab ? old.scrollTop : 0;
@@ -1013,7 +1117,7 @@ function render() {
   const screen = h('main', { class: `screen screen-${ui.tab}` }, view);
   root.replaceChildren(topBar(), screen, tabBar(), toastEl);
   screen.scrollTop = keep;
-  lastScroll = { tab: ui.tab, top: keep };
+  lastScroll = { tab: ui.tab };
 }
 
 window.addEventListener('hashchange', () => {
@@ -1026,17 +1130,16 @@ matchMedia('(prefers-color-scheme: dark)').addEventListener?.('change', () => re
 
 document.addEventListener('keydown', (e) => {
   if (ui.tab !== 'study' || !ui.pick || e.target.closest('input, textarea, select')) return;
-  if (!ui.revealed && (e.key === ' ' || e.key === 'Enter')) {
+  if (!ui.answered && /^[1-4]$/.test(e.key) && ui.options.length) pickOption(Number(e.key) - 1);
+  else if (ui.answered && (e.key === 'Enter' || e.key === ' ')) {
     e.preventDefault();
-    reveal();
-  } else if (ui.revealed && !ui.result && ['1', '2', '3'].includes(e.key)) {
-    answer(Number(e.key) - 1);
+    next();
   }
 });
 
-// Coming back to the app after a while: re-pick if the card was never revealed.
+// Coming back to the app after a while: re-pick if the card wasn't answered yet.
 document.addEventListener('visibilitychange', () => {
-  if (document.visibilityState === 'visible' && ui.tab === 'study' && ui.pick && !ui.revealed && !ui.typed) {
+  if (document.visibilityState === 'visible' && ui.tab === 'study' && ui.pick && !ui.answered && !ui.typed) {
     nextCard();
     render();
   }

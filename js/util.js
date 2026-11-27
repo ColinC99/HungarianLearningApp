@@ -72,4 +72,31 @@ export function fmtHours(hrs) {
 /** "a; b; c" -> "a, b, c" for display */
 export const showEn = (en) => String(en).split(';').map((s) => s.trim()).filter(Boolean).join(', ');
 
+const LITERAL = /\s*\(literally[^)]*\)/gi;
+/** Drop "(literally …)" explanations, e.g. for idioms. */
+export const stripLiteral = (en) => String(en).replace(LITERAL, '').trim();
+/** The "(literally …)" part of an English gloss, if any. */
+export const literalOf = (en) => {
+  const m = /\(literally([^)]*)\)/i.exec(String(en));
+  return m ? `Literally${m[1]}` : '';
+};
+/** Compact gloss for answer options: at most the first two senses, no literal translations. */
+export const shortEn = (en, n = 2) =>
+  stripLiteral(en)
+    .split(';')
+    .map((s) => s.trim())
+    .filter(Boolean)
+    .slice(0, n)
+    .join(', ');
+
+/** Fisher–Yates shuffle (returns a new array). */
+export function shuffle(arr, rand = Math.random) {
+  const a = [...arr];
+  for (let i = a.length - 1; i > 0; i--) {
+    const j = Math.floor(rand() * (i + 1));
+    [a[i], a[j]] = [a[j], a[i]];
+  }
+  return a;
+}
+
 export const cap = (s) => (s ? s[0].toUpperCase() + s.slice(1) : s);

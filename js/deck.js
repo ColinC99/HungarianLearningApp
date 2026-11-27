@@ -4,10 +4,12 @@ import V1 from '../data/vocab-1.js';
 import V2 from '../data/vocab-2.js';
 import V3 from '../data/vocab-3.js';
 import V4 from '../data/vocab-4.js';
+import V5 from '../data/vocab-5.js';
+import V6 from '../data/vocab-6.js';
 import GRAMMAR from '../data/grammar.js';
 import { VERBS, PARADIGMS, VERB_SKILLS } from '../data/verbs.js';
 import CONFUSABLES from '../data/confusables.js';
-import { norm, hash01, showEn, cap } from './util.js';
+import { norm, hash01, showEn, cap, stripLiteral, literalOf } from './util.js';
 
 export const POS_LABEL = {
   n: 'noun',
@@ -91,9 +93,10 @@ export function parseVocab(text, source = '') {
 
 /**
  * Grammar format:
- *   "#skill-id L2 | Title | Explanation"  starts a skill.
- *   "base | english cue | answer | note"  makes two cards: produce the form, and recognise it.
- *   Prefix a line with ">" for produce-only or "<" for recognise-only.
+ *   "#skill-id L2 after=a,b | Title | Explanation"  starts a skill (after = prerequisite skills).
+ *   "base | english cue | answer | note | wrong / wrong / wrong"  makes two cards: produce the
+ *   form, and recognise it. The optional last field holds hand-written wrong options.
+ *   "base#pos" picks a specific word. Prefix a line with ">" for produce-only or "<" for recognise-only.
  */
 export function parseGrammar(text) {
   const skills = [];
@@ -108,8 +111,14 @@ export function parseGrammar(text) {
           .slice(1)
           .split('|')
           .map((s) => s.trim());
-        const [id, lv = 'L1'] = head.split(/\s+/);
-        cur = { id, level: Number(lv.replace(/^L/, '')) || 1, title, info, items: [] };
+        const toks = head.split(/\s+/);
+        let level = 1;
+        let after = [];
+        for (const t of toks.slice(1)) {
+          if (/^L\d$/.test(t)) level = Number(t.slice(1));
+          else if (t.startsWith('after=')) after = t.slice(6).split(',').filter(Boolean);
+        }
+        cur = { id: toks[0], level, after, title, info, items: [] };
         skills.push(cur);
         return;
       }
@@ -125,7 +134,7 @@ export function parseGrammar(text) {
       }
       const f = l.split('|').map((s) => s.trim());
       const [base, pos = ''] = f[0].split('#');
-      cur.items.push({ base, pos, cue: f[1] || '', answer: f[2] || '', note: f[3] || '', only, line: i + 1, nf: f.length });
+      cur.items.push({ base, pos, cue: f[1] || '', answer: f[2] || '', note: f[3] || '', wrong: f[4] ? splitAlts(f[4]) : [], only, line: i + 1, nf: f.length });
     });
   return skills;
 }
@@ -133,11 +142,14 @@ export function parseGrammar(text) {
 function verbEnglish(v, par, i) {
   const E = v.e || {};
   if (E.x && E.x[par]) return E.x[par][i];
-  const [base, s3, past] = v.en.split('|');
-  const [dbase, ds3, dpast] = (E.d || `${base} it|${s3} it|${past} it`).split('|');
+  const [base, s3, past, pp = ''] = v.en.split('|');
+  const d = (E.d || `${base} it|${s3} it|${past} it`).split('|');
+  const [dbase, ds3, dpast] = d;
+  const dpp = d[3] || (pp ? `${pp} it` : '');
   const cond = E.c || `would ${base}`;
   const dcond = E.cd || `would ${dbase}`;
   const ib = E.i || base;
+  const sb = E.s || base;
   switch (par) {
     case 'pres':
       return `${SUBJ[i]} ${i === 2 ? s3 : base}`;
@@ -157,10 +169,29 @@ function verbEnglish(v, par, i) {
       return E.id || `${cap(dbase)}!`;
     case 'lak':
       return E.l || `I ${base} you`;
+    case 'subj':
+      return [`Should I ${sb}?`, `He/she should ${sb}`, `They should ${sb}`][i];
+    case 'kell':
+      return `${SUBJ[i]} ${i === 2 ? 'has' : 'have'} to ${E.k || base}`;
+    case 'pcond':
+      return `${SUBJ[i]} ${E.pc || `would have ${pp}`}`;
+    case 'pcdef':
+      return `${SUBJ[i]} ${E.pcd || `would have ${dpp}`}`;
     default:
       return '';
   }
 }
+
+/** "would have": the past form + volna (mentem → mentem volna). */
+const withVolna = (cells) =>
+  cells
+    .split(',')
+    .map((c) =>
+      splitAlts(c)
+        .map((f) => `${f} volna`)
+        .join('/'),
+    )
+    .join(', ');
 
 export function buildDeck() {
   const cards = [];
@@ -177,15 +208,12 @@ export function buildDeck() {
   };
 
   // ---------------- vocabulary ----------------
-  const words = [
-    ...parseVocab(V1, 'vocab-1'),
-    ...parseVocab(V2, 'vocab-2'),
-    ...parseVocab(V3, 'vocab-3'),
-    ...parseVocab(V4, 'vocab-4'),
-  ];
+  const words = [V1, V2, V3, V4, V5, V6].flatMap((t, k) => parseVocab(t, `vocab-${k + 1}`));
   const huIndex = new Map(); // normalised Hungarian -> [words]
+  const wordById = new Map();
   for (const w of words) {
     w.id = `w:${w.hu}|${w.pos}`;
+    wordById.set(w.id, w);
     for (const k of [w.hu, ...w.alts]) push(huIndex, norm(k), w);
     if (w.pos === 'v' && w.form) push(huIndex, norm(w.form), w);
   }
@@ -236,8 +264,8 @@ export function buildDeck() {
       topic: w.topic,
       word: w,
       label: 'English → Hungarian',
-      q: { text: showEn(w.en), lang: 'en', hint: posL },
-      a: { text: w.hu, lang: 'hu', sub, note: w.note },
+      q: { text: showEn(stripLiteral(w.en)), lang: 'en', hint: posL },
+      a: { text: w.hu, lang: 'hu', sub: [sub, literalOf(w.en)].filter(Boolean).join(' · '), note: w.note },
       answers: answersFor([w.hu, ...w.alts, ...(w.pos === 'v' && w.form ? [w.form] : [])]),
       sib: `${w.id}>en`,
       prior: prior + 0.1,
@@ -253,8 +281,9 @@ export function buildDeck() {
 
   // ---------------- grammar drills ----------------
   const skills = [];
+  const gItems = [];
   for (const sk of parseGrammar(GRAMMAR)) {
-    const skill = { id: sk.id, level: sk.level, title: sk.title, info: sk.info, cards: [], examples: [], verb: false };
+    const skill = { id: sk.id, level: sk.level, after: sk.after, title: sk.title, info: sk.info, cards: [], examples: [], verb: false };
     for (const it of sk.items) {
       const answers = splitAlts(it.answer);
       const primary = answers[0];
@@ -265,6 +294,17 @@ export function buildDeck() {
       // Prefix verbs explain themselves: "bemegy" -> "be- + megy".
       const prefixed = primary.length > it.base.length && primary.endsWith(it.base) ? `${primary.slice(0, -it.base.length)}- + ${it.base}` : '';
       const breakdown = it.note || prefixed || `${it.base} → ${primary}`;
+      const item = {
+        base: it.base,
+        cue: it.cue,
+        answers,
+        primary,
+        skill: sk.id,
+        wrong: it.wrong,
+        conjId: it.only !== 'r' ? `${group}>p` : null,
+        identId: it.only !== 'p' ? `${group}>r` : null,
+      };
+      gItems.push(item);
       if (it.only !== 'p') {
         const c = add({
           id: `${group}>r`,
@@ -272,6 +312,7 @@ export function buildDeck() {
           group,
           level: sk.level,
           skill: sk.id,
+          item,
           label: 'What does it mean?',
           q: { text: primary, lang: 'hu', hint: '' },
           a: { text: it.cue, lang: 'en', sub: breakdown, note: `${sk.title}. ${sk.info}` },
@@ -288,6 +329,7 @@ export function buildDeck() {
           group,
           level: sk.level,
           skill: sk.id,
+          item,
           label: 'Make the form',
           q: { text: it.base, lang: 'hu', cue: it.cue },
           a: { text: answers.join(' / '), lang: 'hu', sub: it.note || prefixed, note: `${sk.title}. ${sk.info}` },
@@ -305,12 +347,20 @@ export function buildDeck() {
   // ---------------- verb tables ----------------
   const vskill = new Map();
   for (const s of VERB_SKILLS) {
-    const skill = { ...s, cards: [], examples: [], verb: true };
+    const skill = { ...s, after: s.after || [], cards: [], examples: [], verb: true };
     vskill.set(s.id, skill);
     skills.push(skill);
   }
+  const vCells = [];
+  const vCellsByVerb = new Map();
   const readCards = [];
-  VERBS.forEach((v, rank) => {
+  VERBS.forEach((v0, rank) => {
+    const v = { ...v0 };
+    const pp = v.en.split('|')[3];
+    const E = v.e || {};
+    const hasPc = !!(pp || E.pc || (E.x && E.x.pcond));
+    if (!v.pcond && v.past && hasPc) v.pcond = withVolna(v.past);
+    if (!v.pcdef && v.pdef && (pp || E.pcd || (E.x && E.x.pcdef))) v.pcdef = withVolna(v.pdef);
     const req = reqFor(v.inf);
     if (!req) problems.push(`Verb table ${v.inf} has no matching vocabulary word`);
     const enBase = v.en.split('|')[0];
@@ -319,17 +369,22 @@ export function buildDeck() {
       if (!v[par]) continue;
       const cells = v[par].split(',').map((s) => s.trim());
       if (cells.length !== P.persons.length) problems.push(`${v.inf}.${par}: expected ${P.persons.length} forms, got ${cells.length}`);
-      cells.forEach((cell, i) => {
-        const forms = splitAlts(cell);
+      cells.forEach((cellText, i) => {
+        const forms = splitAlts(cellText);
         const person = P.persons[i];
         const en = verbEnglish(v, par, i);
+        const id = `c:${v.inf}:${par}:${i}`;
+        const cell = { verb: v.inf, par, i, forms, en, conjId: id };
+        vCells.push(cell);
+        push(vCellsByVerb, v.inf, cell);
         const c = add({
-          id: `c:${v.inf}:${par}:${i}`,
+          id,
           kind: 'conj',
           group: `c:${v.inf}:${par}`,
           level: P.level,
           skill: P.skill,
           verb: v.inf,
+          cell,
           label: 'Conjugate',
           q: { text: v.inf, lang: 'hu', chips: [person, P.title], cue: en },
           a: { text: forms.join(' / '), lang: 'hu', sub: `${v.inf} · ${person} · ${P.title}`, note: v.note || '' },
@@ -356,6 +411,8 @@ export function buildDeck() {
           level: Math.max(2, Math.min(...rs.map((r) => r.level))),
           skill: 'v-read',
           verb: v.inf,
+          form,
+          readings: rs,
           label: 'What does it mean?',
           q: { text: form, lang: 'hu', hint: '' },
           a: {
@@ -377,6 +434,8 @@ export function buildDeck() {
     if (c) vskill.get('v-read').cards.push(c);
   }
   skills.forEach((s, i) => (s.idx = i));
+  const skillById = new Map(skills.map((s) => [s.id, s]));
+  for (const s of skills) for (const a of s.after) if (!skillById.has(a)) problems.push(`Skill ${s.id} needs unknown skill ${a}`);
 
   // ---------------- look-alikes ----------------
   for (const groupList of CONFUSABLES) {
@@ -401,8 +460,13 @@ export function buildDeck() {
     cards,
     byId,
     words,
+    wordById,
     huIndex,
     skills,
+    skillById,
+    gItems,
+    vCells,
+    vCellsByVerb,
     vocabOrder,
     wordIdsByLevel,
     problems,

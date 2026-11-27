@@ -474,8 +474,11 @@ button {
   gap: 8px;
   position: sticky;
   bottom: 0;
-  padding-top: 4px;
-  background: linear-gradient(to top, var(--bg) 75%, transparent);
+  padding: 10px 0 12px;
+  background: linear-gradient(to top, var(--bg) 82%, transparent);
+}
+.screen.screen-study {
+  padding-bottom: 0;
 }
 .grades {
   display: grid;
@@ -593,6 +596,223 @@ button {
 }
 .accent:active {
   background: var(--surface-2);
+}
+
+/* ---------- multiple choice ---------- */
+.prompt-card {
+  flex: 0 0 auto;
+  min-height: 190px;
+}
+.prompt-card .prompt {
+  padding: 16px 0 8px;
+}
+.options {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+.option {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  min-height: 56px;
+  padding: 10px 14px;
+  border-radius: 16px;
+  border: 1.5px solid var(--line);
+  background: var(--surface);
+  color: var(--text);
+  text-align: left;
+  font-size: 17px;
+  font-weight: 600;
+  line-height: 1.3;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04);
+  transition: transform 0.08s ease, background 0.15s, border-color 0.15s, opacity 0.15s;
+}
+.options:not(.done) .option:active {
+  transform: scale(0.985);
+  border-color: var(--text);
+}
+.opt-key {
+  flex: none;
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 13px;
+  font-weight: 800;
+  color: var(--muted);
+  background: var(--surface-2);
+}
+.opt-key svg {
+  width: 16px;
+  height: 16px;
+  display: block;
+}
+.opt-body {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+.opt-text {
+  overflow-wrap: anywhere;
+}
+.opt-gloss {
+  font-size: 13.5px;
+  font-weight: 500;
+  color: var(--muted);
+}
+.opt-gloss.is-wrong {
+  color: var(--red);
+}
+.option.right {
+  border-color: var(--green);
+  background: var(--green-soft);
+}
+.option.right .opt-key {
+  background: var(--green);
+  color: var(--on-accent);
+}
+.option.wrong {
+  border-color: var(--red);
+  background: var(--red-soft);
+}
+.option.wrong .opt-key {
+  background: var(--red);
+  color: var(--on-accent);
+}
+.option.other {
+  opacity: 0.8;
+}
+.details {
+  background: var(--surface);
+  border-radius: 20px;
+  box-shadow: var(--shadow);
+  padding: 14px 16px 12px;
+  text-align: center;
+  animation: fadeUp 0.2s ease-out;
+}
+.next-row {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 8px;
+}
+.next-row.n1 {
+  grid-template-columns: 1fr 1.7fr;
+}
+.next-row.n2 {
+  grid-template-columns: 1fr 1fr 1.6fr;
+}
+.next-row .next {
+  min-height: 56px;
+}
+.btn.mini {
+  min-height: 56px;
+  padding: 0 6px;
+  font-size: 14px;
+  font-weight: 650;
+  border-radius: 16px;
+}
+.verdict {
+  font-weight: 750;
+  font-size: 15px;
+  margin-bottom: 6px;
+}
+.verdict.ok {
+  color: var(--green-strong);
+}
+.verdict.bad {
+  color: var(--red);
+}
+.a-say {
+  font-size: 20px;
+  font-weight: 700;
+  color: var(--green-strong);
+}
+.tip {
+  margin: 8px auto 0;
+  max-width: 32em;
+  font-size: 13px;
+  color: var(--blue);
+  background: var(--blue-soft);
+  border-radius: 12px;
+  padding: 7px 10px;
+}
+.link.small {
+  font-size: 13px;
+  padding: 4px 0 0;
+  align-self: flex-start;
+}
+
+/* ---------- levels ---------- */
+.lvl-row {
+  margin-bottom: 14px;
+}
+.lvl-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-weight: 650;
+  font-size: 14.5px;
+}
+.lvl-badge {
+  flex: none;
+  width: 22px;
+  height: 22px;
+  border-radius: 7px;
+  background: var(--green-soft);
+  color: var(--green-strong);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 12px;
+  font-weight: 800;
+}
+.lvl-name {
+  flex: 1;
+}
+.lvl-state {
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--muted);
+  display: inline-flex;
+}
+.lvl-state.current {
+  color: var(--green-strong);
+}
+.lvl-state svg,
+.lock svg {
+  width: 15px;
+  height: 15px;
+}
+.lvl-row .gbar {
+  margin-top: 6px;
+}
+.lvl-sub {
+  font-size: 12.5px;
+  margin-top: 4px;
+}
+.lvl-row.locked {
+  opacity: 0.65;
+}
+.lvl-row.locked .lvl-badge {
+  background: var(--surface-2);
+  color: var(--muted);
+}
+.lock {
+  display: inline-flex;
+  color: var(--muted);
+}
+.glock {
+  font-size: 12.5px;
+  margin-top: 6px;
+}
+.grow.locked b {
+  color: var(--muted);
 }
 
 .empty {
@@ -1074,6 +1294,9 @@ h2 {
 @media (min-height: 780px) {
   .card {
     min-height: 360px;
+  }
+  .prompt-card {
+    min-height: 220px;
   }
 }
 @media (prefers-reduced-motion: reduce) {

@@ -3,7 +3,7 @@
 const KEY = 'szokincs:v1';
 
 export const DEFAULTS = {
-  answerMode: 'flip', // 'flip' | 'type'
+  answerMode: 'choice', // 'choice' (multiple choice) | 'type' (type the Hungarian)
   intensity: 'challenging', // 'relaxed' | 'challenging' | 'brutal'
   mix: 'balanced', // 'words' | 'balanced' | 'grammar'
   directions: 'both', // 'both' | 'hu2en' | 'en2hu'
@@ -13,7 +13,7 @@ export const DEFAULTS = {
 };
 
 export function freshState() {
-  return { v: 1, created: Date.now(), cards: {}, log: [], days: {}, settings: { ...DEFAULTS } };
+  return { v: 1, created: Date.now(), cards: {}, log: [], days: {}, mix: {}, levelFloor: 1, settings: { ...DEFAULTS } };
 }
 
 /** Validate + fill in a loaded or imported state. Throws if it isn't one of ours. */
@@ -21,13 +21,17 @@ export function normalizeState(s) {
   if (!s || typeof s !== 'object' || !s.cards || typeof s.cards !== 'object') {
     throw new Error('This file is not a Szókincs backup.');
   }
+  const settings = { ...DEFAULTS, ...(s.settings || {}) };
+  if (settings.answerMode !== 'type') settings.answerMode = 'choice'; // v1.0 "flip" cards became multiple choice
   return {
     v: 1,
     created: Number(s.created) || Date.now(),
     cards: s.cards,
     log: Array.isArray(s.log) ? s.log.slice(-400) : [],
     days: s.days && typeof s.days === 'object' ? s.days : {},
-    settings: { ...DEFAULTS, ...(s.settings || {}) },
+    mix: s.mix && typeof s.mix === 'object' ? s.mix : {},
+    levelFloor: Math.max(1, Number(s.levelFloor) || 1), // level unlocked by hand
+    settings,
   };
 }
 

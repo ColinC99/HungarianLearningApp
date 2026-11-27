@@ -1,6 +1,9 @@
 // Grammar drills. Each line makes two cards: produce the form, and recognise what it means.
-// "#skill-id L<level> | Title | Explanation" starts a skill.
-// "base | english cue | answer | note"   (base#pos picks a specific word, e.g. hét#n = week)
+// "#skill-id L<level> after=a,b | Title | Explanation" starts a skill. A skill only starts appearing
+//   once its level is open AND the skills listed in after= are partly mastered.
+// "base | english cue | answer | note | wrong / wrong / wrong"
+//   base#pos picks a specific word (e.g. hét#n = week). The optional last field holds hand-written
+//   wrong options for multiple choice (otherwise they are generated from similar forms).
 // A line starting with ">" is produce-only, "<" recognise-only.
 export default `
 #plural L1 | Plural -k | Add -k for plurals. After a consonant a linking vowel appears: -ok/-ek/-ök, and some words take -ak. Final -a/-e lengthens: alma → almák.
@@ -100,7 +103,7 @@ hűtő | in the fridge | hűtőben
 könyv | in the book | könyvben
 tévé | on TV | tévében | Hungarian says "in the TV"!
 
-#in-ba L1 | -ba/-be: into, to | Where to? — into a place. Back vowels: -ba, front vowels: -be. Megyek a boltba. = I'm going to the shop.
+#in-ba L1 after=in-ban | -ba/-be: into, to | Where to? — into a place. Back vowels: -ba, front vowels: -be. Megyek a boltba. = I'm going to the shop.
 bolt | to the shop | boltba
 iskola | to school | iskolába
 ház | into the house | házba
@@ -118,7 +121,7 @@ Anglia | to England | Angliába
 templom | to church | templomba
 kocsma | to the pub | kocsmába
 
-#in-bol L1 | -ból/-ből: out of, from | Where from? — out of a place. Also origin: Angliából jövök. = I come from England.
+#in-bol L1 after=in-ba | -ból/-ből: out of, from | Where from? — out of a place. Also origin: Angliából jövök. = I come from England.
 bolt | from the shop (out of it) | boltból
 ház | out of the house | házból
 iskola | from school | iskolából
@@ -134,7 +137,7 @@ víz | out of the water | vízből
 könyv | from the book | könyvből
 mozi | from the cinema | moziból
 
-#on-n L1 | -n/-on/-en/-ön: on, at | On a surface — and "in/at" for many places: Budapesten, a postán, az egyetemen, Magyarországon. After a vowel just -n.
+#on-n L1 after=in-ban | -n/-on/-en/-ön: on, at | On a surface — and "in/at" for many places: Budapesten, a postán, az egyetemen, Magyarországon. After a vowel just -n.
 asztal | on the table | asztalon
 szék | on the chair | széken
 föld | on the ground | földön
@@ -160,7 +163,7 @@ kép | in the picture | képen | Hungarian says "on the picture"
 erkély | on the balcony | erkélyen
 hegy | on the mountain | hegyen
 
-#on-ra L2 | -ra/-re: onto, to | Where to? — onto a surface, and "to" for the -n places: Budapestre, a postára, az egyetemre. Also deadlines: hétfőre = by Monday.
+#on-ra L2 after=on-n | -ra/-re: onto, to | Where to? — onto a surface, and "to" for the -n places: Budapestre, a postára, az egyetemre. Also deadlines: hétfőre = by Monday.
 asztal | onto the table | asztalra
 szék | onto the chair | székre
 föld | onto the ground | földre
@@ -180,7 +183,7 @@ hétfő | by Monday; for Monday | hétfőre
 ágy | onto the bed | ágyra
 tető | onto the roof | tetőre
 
-#on-rol L2 | -ról/-ről: off, from, about | Off a surface — "from" for the -n places (Budapestről) — and "about": a filmről = about the film.
+#on-rol L2 after=on-ra | -ról/-ről: off, from, about | Off a surface — "from" for the -n places (Budapestről) — and "about": a filmről = about the film.
 asztal | off the table | asztalról
 Budapest | from Budapest | Budapestről
 Magyarország | from Hungary | Magyarországról
@@ -197,7 +200,7 @@ család | about the family | családról
 könyv | about the book | könyvről
 fal | off the wall | falról
 
-#at-nal L2 | -nál/-nél: at, by, at someone's place | Next to something or at a person's place: az ablaknál (by the window), az orvosnál (at the doctor's), Péternél (at Peter's).
+#at-nal L2 after=in-ban | -nál/-nél: at, by, at someone's place | Next to something or at a person's place: az ablaknál (by the window), az orvosnál (at the doctor's), Péternél (at Peter's).
 ablak | by the window | ablaknál
 ajtó | at the door | ajtónál
 orvos | at the doctor's | orvosnál
@@ -213,7 +216,7 @@ megálló | at the stop | megállónál
 tó | by the lake | tónál
 Anna | at Anna's | Annánál
 
-#at-hoz L2 | -hoz/-hez/-höz: to (a person or place) | Towards something or to someone: az orvoshoz (to the doctor). Three forms: -hoz (back vowels), -hez (front), -höz (last vowel ö/ő/ü/ű).
+#at-hoz L2 after=at-nal | -hoz/-hez/-höz: to (a person or place) | Towards something or to someone: az orvoshoz (to the doctor). Three forms: -hoz (back vowels), -hez (front), -höz (last vowel ö/ő/ü/ű).
 orvos | to the doctor | orvoshoz
 fodrász | to the hairdresser | fodrászhoz
 nagymama | to Grandma's | nagymamához
@@ -229,7 +232,7 @@ tükör | to the mirror | tükörhöz
 pénztár | to the checkout | pénztárhoz
 Anna | to Anna('s) | Annához
 
-#at-tol L2 | -tól/-től: from (a person or place) | Away from something or someone: az orvostól (from the doctor), Pétertől (from Peter). In time: reggeltől = from the morning on.
+#at-tol L2 after=at-hoz | -tól/-től: from (a person or place) | Away from something or someone: az orvostól (from the doctor), Pétertől (from Peter). In time: reggeltől = from the morning on.
 orvos | from the doctor | orvostól
 Péter | from Peter | Pétertől
 anya | from Mum | anyától
@@ -243,7 +246,7 @@ hétfő | from Monday | hétfőtől
 szomszéd | from the neighbour | szomszédtól
 tanár | from the teacher | tanártól
 
-#val L2 | -val/-vel: with, by | "With" — or how you travel or pay: busszal (by bus), kártyával (by card). The v copies a final consonant: ház → házzal, kés → késsel.
+#val L2 after=acc | -val/-vel: with, by | "With" — or how you travel or pay: busszal (by bus), kártyával (by card). The v copies a final consonant: ház → házzal, kés → késsel.
 barát | with a friend | baráttal
 anya | with Mum | anyával
 Péter | with Peter | Péterrel
@@ -266,7 +269,7 @@ kutya | with the dog | kutyával
 gyerek | with the child | gyerekkel
 toll | with a pen | tollal | ll + v → ll (never three l's)
 
-#nak L2 | -nak/-nek: to, for (someone) | The receiver: Péternek adom. = I give it to Peter. Also for "having": Péternek van kutyája. = Peter has a dog.
+#nak L2 after=acc | -nak/-nek: to, for (someone) | The receiver: Péternek adom. = I give it to Peter. Also for "having": Péternek van kutyája. = Peter has a dog.
 Péter | to/for Peter | Péternek
 anya | to/for Mum | anyának
 barát | to/for a friend | barátnak
@@ -280,30 +283,30 @@ kutya | to/for the dog | kutyának
 mindenki | to/for everyone | mindenkinek
 ki | to whom?; for whom? | kinek
 
-#time L2 | Time expressions | Days take -n/-on/-en/-ön (hétfőn, kedden) but vasárnap stays the same. Months take -ban/-ben. Seasons: nyáron, télen, tavasszal, ősszel. Clock times take -kor (hatkor = at six), but noon is délben.
+#time L2 after=on-n | Time expressions | Days take -n/-on/-en/-ön (hétfőn, kedden) but vasárnap stays the same. Months take -ban/-ben. Seasons: nyáron, télen, tavasszal, ősszel. Clock times take -kor (hatkor = at six), but noon is délben.
 hétfő | on Monday | hétfőn
 kedd | on Tuesday | kedden
 szerda | on Wednesday | szerdán
 csütörtök | on Thursday | csütörtökön
 péntek | on Friday | pénteken
 szombat | on Saturday | szombaton
-vasárnap | on Sunday | vasárnap | no ending!
+vasárnap | on Sunday | vasárnap | no ending! | vasárnapon / vasárnapban / vasárnapkor
 hétvége | at the weekend | hétvégén
 január | in January | januárban
 május | in May | májusban
 nyár | in summer | nyáron
 tél | in winter | télen
-tavasz | in spring | tavasszal | uses -val/-vel!
-ősz | in autumn | ősszel | uses -val/-vel!
+tavasz | in spring | tavasszal | uses -val/-vel! | tavaszon / tavaszban / tavaszkor
+ősz | in autumn | ősszel | uses -val/-vel! | őszön / őszben / őszkor
 hat | at six (o'clock) | hatkor
 nyolc | at eight (o'clock) | nyolckor
-dél | at noon | délben | exception: -ben
+dél | at noon | délben | exception: -ben | délkor / délen / délre
 éjfél | at midnight | éjfélkor
 hány | at what time? | hánykor
 karácsony | at Christmas | karácsonykor
-reggel | in the morning | reggel | no ending!
+reggel | in the morning | reggel | no ending! | reggelen / reggelben / reggelkor
 
-#poss L2 | Possessive endings | my -m, your -d, his/her -a/-e (often -ja/-je), our -nk, your (plural) -tok/-tek/-tök, their -uk/-ük (or -juk/-jük). A linking vowel appears after consonants: házam, könyvem.
+#poss L2 after=plural | Possessive endings | my -m, your -d, his/her -a/-e (often -ja/-je), our -nk, your (plural) -tok/-tek/-tök, their -uk/-ük (or -juk/-jük). A linking vowel appears after consonants: házam, könyvem.
 ház | my house | házam
 ház | your house | házad
 ház | his/her house | háza
@@ -336,7 +339,7 @@ anya | my mother | anyám
 anya | his/her mother | anyja | irregular: anyja
 apa | my father | apám
 apa | his/her father | apja | irregular: apja
-fiú | my son | fiam | irregular: fiam, fiad, fia
+fiú | my son | fiam | irregular: fiam, fiad, fia | fiúm / fiúnk / fiúja
 fiú | his/her son | fia
 lány | my daughter | lányom
 lány | his/her daughter | lánya
@@ -355,22 +358,22 @@ munka | my work; my job | munkám
 könyv | my books | könyveim | several things: -im/-eim/-aim
 barát | my friends | barátaim
 gyerek | my children | gyerekeim
-szülő | my parents | szüleim | irregular: szüleim
+szülő | my parents | szüleim | irregular: szüleim | szülőim / szüleink / szülőm
 
-#have L2 | "I have…" | There is no verb "to have". Say "there is my…": Van egy kutyám. = I have a dog. Negative: Nincs autóm. = I don't have a car.
-kutya | I have a dog | Van egy kutyám.
-autó | I don't have a car | Nincs autóm.
-idő | Do you have time? | Van időd?
-testvér | I have a brother/sister | Van egy testvérem.
-pénz | I have no money | Nincs pénzem.
-kérdés | I have a question | Van egy kérdésem.
-gyerek | Do you (formal) have children? | Van gyereke?
-ötlet | I have an idea | Van egy ötletem.
-igaz | You're right (literally "you have truth") | Igazad van.
-kedv | I don't feel like it | Nincs kedvem.
-kocsi | Do you have a car? | Van kocsid?
+#have L2 after=poss | "I have…" | There is no verb "to have". Say "there is my…": Van egy kutyám. = I have a dog. Negative: Nincs autóm. = I don't have a car.
+kutya | I have a dog | Van egy kutyám. | | Van egy kutya. / Van egy kutyád. / Nincs kutyám.
+autó | I don't have a car | Nincs autóm. | | Nem van autóm. / Nincs autód. / Van autóm.
+idő | Do you have time? | Van időd? | | Van időm? / Van idő? / Nincs időd?
+testvér | I have a brother/sister | Van egy testvérem. | | Van egy testvér. / Van egy testvérünk. / Nincs testvérem.
+pénz | I have no money | Nincs pénzem. | | Nem van pénzem. / Nincs pénz. / Nincs pénzed.
+kérdés | I have a question | Van egy kérdésem. | | Van egy kérdés. / Van egy kérdésed. / Van egy kérdésünk.
+gyerek | Do you (formal) have children? | Van gyereke? | | Van gyereked? / Van gyerekem? / Van gyerek?
+ötlet | I have an idea | Van egy ötletem. | | Van egy ötlet. / Van egy ötleted. / Nincs ötletem.
+igaz | You're right (literally "you have truth") | Igazad van. | | Igazam van. / Igaz vagy. / Igazság van.
+kedv | I don't feel like it | Nincs kedvem. | | Nem van kedvem. / Nincs kedved. / Van kedvem.
+kocsi | Do you have a car? | Van kocsid? | | Van kocsim? / Van kocsi? / Van kocsink?
 
-#pers L2 | Personal forms (nekem, veled…) | Case endings can't go on pronouns — they take personal endings instead: nekem (to me), veled (with you), tőle (from him/her), nálunk (at our place).
+#pers L2 after=nak,val | Personal forms (nekem, veled…) | Case endings can't go on pronouns — they take personal endings instead: nekem (to me), veled (with you), tőle (from him/her), nálunk (at our place).
 -nak/-nek | to me; for me | nekem
 -nak/-nek | to you; for you | neked
 -nak/-nek | to him/her | neki
@@ -417,19 +420,19 @@ kocsi | Do you have a car? | Van kocsid?
 -é (whose) | yours | tiéd
 -é (whose) | his/hers | övé
 
-#future L2 | Future | Use the present with a time word (Holnap dolgozom), or fog + infinitive (Holnap fogok dolgozni). "Will be" is lesz: leszek, leszel, lesz…
+#future L2 after=v-pres | Future | Use the present with a time word (Holnap dolgozom), or fog + infinitive (Holnap fogok dolgozni). "Will be" is lesz: leszek, leszel, lesz…
 lenni | I will be | leszek
 lenni | you will be | leszel
 lenni | he/she/it will be | lesz
 lenni | we will be | leszünk
 lenni | you all will be | lesztek
 lenni | they will be | lesznek
-menni | I will go | fogok menni / menni fogok
-csinálni | What are you going to do? | Mit fogsz csinálni?
-esni | It's going to rain | Esni fog.
-látni | We'll see | Majd meglátjuk. | majd + present = future
+menni | I will go | fogok menni / menni fogok | | fogsz menni / fogok jönni / mentem
+csinálni | What are you going to do? | Mit fogsz csinálni? | | Mit fogok csinálni? / Mit csináltál? / Mit akarsz csinálni?
+esni | It's going to rain | Esni fog. | | Esett. / Esik. / Havazni fog.
+látni | We'll see | Majd meglátjuk. | majd + present = future | Majd meglátod. / Láttuk. / Majd meglátom.
 
-#pref L2 | Verb prefixes | Prefixes add direction or completion: be- in, ki- out, fel- up, le- down, el- away, vissza- back, haza- home, át- across, oda- there, ide- here, meg- (completes the action), össze- together.
+#pref L2 after=v-pres | Verb prefixes | Prefixes add direction or completion: be- in, ki- out, fel- up, le- down, el- away, vissza- back, haza- home, át- across, oda- there, ide- here, meg- (completes the action), össze- together.
 megy | go in | bemegy
 megy | go out | kimegy
 megy | go up | felmegy
@@ -507,43 +510,58 @@ beszél | discuss; talk over | megbeszél
 fordul | turn around | megfordul
 próbál | try out | kipróbál
 próbál | try on (clothes) | felpróbál
+száll | get in (a car) | beszáll
+száll | get out (of a car) | kiszáll
+lép | enter; log in | belép
+lép | exit; log out | kilép
+fut | run away | elfut
+dob | throw out | kidob
+dob | throw away | eldob
+húz | pull up; put on (shoes) | felhúz
+húz | pull down; flush (the toilet) | lehúz
+fog#v | grab; take hold of | megfog
+fog#v | catch; arrest | elfog
+ad | add | hozzáad
+rak | put away | elrak
+rak | put in; load | berak
+nő#v | grow up | felnő
 
-#hat L2 | -hat/-het: can, may | Add -hat/-het to the verb stem: mehetek (I may go), ehetek (I can eat). Perfect for polite questions: Segíthetek? = Can I help?
-segít | Can I help? | Segíthetek?
-bejön | May I come in? | Bejöhetek?
-leül | May I sit down? | Leülhetek?
-fizet | Can I pay by card? | Fizethetek kártyával?
-kérdez | May I ask something? | Kérdezhetek valamit?
-kipróbál | Can I try it? | Kipróbálhatom?
-megy | We can go | Mehetünk.
-jön | You can come | Jöhetsz.
-eszik | Can I eat? | Ehetek?
-iszik | Can I drink? | Ihatok?
-lát | Can I see it? | Láthatom?
-hív | Can I call you? | Hívhatlak?
-kér | Can I have a glass of water? | Kérhetek egy pohár vizet?
-megnéz | Can I have a look at it? | Megnézhetem?
-használ | Can I use it? | Használhatom?
-marad | Can I stay? | Maradhatok?
+#hat L2 after=v-pres | -hat/-het: can, may | Add -hat/-het to the verb stem: mehetek (I may go), ehetek (I can eat). Perfect for polite questions: Segíthetek? = Can I help?
+segít | Can I help? | Segíthetek? | | Segíthetsz? / Segítettem? / Segítenek?
+bejön | May I come in? | Bejöhetek? | | Bejöhetsz? / Bemehetek? / Bejövök?
+leül | May I sit down? | Leülhetek? | | Leülhetsz? / Leülök? / Felállhatok?
+fizet | Can I pay by card? | Fizethetek kártyával? | | Fizethetsz kártyával? / Fizetek kártyával? / Fizethetek készpénzzel?
+kérdez | May I ask something? | Kérdezhetek valamit? | | Kérdezhetsz valamit? / Kérdezek valamit? / Kérhetek valamit?
+kipróbál | Can I try it? | Kipróbálhatom? | | Kipróbálhatok? / Kipróbálhatod? / Kipróbálom?
+megy | We can go | Mehetünk. | | Megyünk. / Mehettek. / Mehetek.
+jön | You can come | Jöhetsz. | | Jössz. / Jöhetek. / Mehetsz.
+eszik | Can I eat? | Ehetek? | | Eszek? / Ehetsz? / Ihatok?
+iszik | Can I drink? | Ihatok? | | Iszok? / Ihatsz? / Ehetek?
+lát | Can I see it? | Láthatom? | | Láthatok? / Láthatod? / Látom?
+hív | Can I call you? | Hívhatlak? | | Hívhatsz? / Hívhatom? / Hívlak?
+kér | Can I have a glass of water? | Kérhetek egy pohár vizet? | | Kérdezhetek egy pohár vizet? / Kérhetsz egy pohár vizet? / Kérek egy pohár víz?
+megnéz | Can I have a look at it? | Megnézhetem? | | Megnézhetek? / Megnézheted? / Megnézem?
+használ | Can I use it? | Használhatom? | | Használhatok? / Használhatod? / Használom?
+marad | Can I stay? | Maradhatok? | | Maradhatsz? / Maradok? / Mehetek?
 
 #comp L2 | Comparison | Comparative -bb (with a linking vowel: -abb/-ebb). Superlative leg- … -bb. Irregular: jó → jobb, sok → több, kicsi → kisebb, szép → szebb. "Than" = mint.
-jó | better | jobb
+jó | better (adjective) | jobb | | jóbb / jobban / legjobb
 jó | the best | legjobb
 rossz | worse | rosszabb
 nagy | bigger | nagyobb
 nagy | the biggest | legnagyobb
-kicsi | smaller | kisebb
-sok | more | több
+kicsi | smaller | kisebb | | kicsibb / kicsebb / kisebben
+sok | more | több | | sokabb / leginkább / legtöbb
 sok | the most | legtöbb
 kevés | less; fewer | kevesebb
-szép | more beautiful | szebb
+szép | more beautiful | szebb | | szépebb / szebben / legszebb
 szép | the most beautiful | legszebb
 könnyű | easier | könnyebb
 nehéz | harder; heavier | nehezebb
 drága | more expensive | drágább
 olcsó | cheaper | olcsóbb
 gyors | faster | gyorsabb
-lassú | slower | lassabb
+lassú | slower | lassabb | | lassúbb / lassúabb / lassan
 hosszú | longer | hosszabb
 magas | taller; higher | magasabb
 fiatal | younger | fiatalabb
@@ -555,11 +573,11 @@ szívesen | rather (more gladly) | szívesebben
 jól | better (adverb) | jobban | Jobban vagyok. = I feel better.
 régi | older (thing) | régebbi
 
-#adv L2 | Adverbs & languages | Adjective → adverb with -an/-en (gyorsan), sometimes -ul/-ül (rosszul) or irregular (jól). Languages: -ul/-ül means "in": magyarul = in Hungarian.
+#adv L2 after=comp | Adverbs & languages | Adjective → adverb with -an/-en (gyorsan), sometimes -ul/-ül (rosszul) or irregular (jól). Languages: -ul/-ül means "in": magyarul = in Hungarian.
 gyors | quickly | gyorsan
 lassú | slowly | lassan
 szép | nicely | szépen
-jó | well | jól
+jó | well | jól | | jóan / jón / jobban
 rossz | badly | rosszul
 könnyű | easily | könnyen
 nehéz | with difficulty | nehezen
@@ -575,7 +593,7 @@ francia | in French | franciául
 olasz | in Italian | olaszul
 spanyol | in Spanish | spanyolul
 
-#ig-ert L3 | -ig, -ért | -ig = until, as far as: holnapig, a sarokig. -ért = for, in exchange for, to fetch: Elmegyek kenyérért. = I'll go and get some bread.
+#ig-ert L3 after=time | -ig, -ért | -ig = until, as far as: holnapig, a sarokig. -ért = for, in exchange for, to fetch: Elmegyek kenyérért. = I'll go and get some bread.
 holnap | until tomorrow | holnapig
 hétfő | until Monday | hétfőig
 este | until the evening | estig | este + -ig → estig
@@ -588,7 +606,54 @@ pénz | for money | pénzért
 gyerek | for the child (to pick them up) | gyerekért
 mi#q | what for?; why? | miért
 
-#post L3 | Postpositions | Words like előtt (in front of), után (after), nélkül (without) come AFTER the noun: a ház előtt. With pronouns they take personal endings: előttem, utánad, nélküle.
+#qcase L3 after=pers | Question words with endings | Question words take case endings too: kivel? (with whom?), kitől? (from whom?), miről? (about what?), mibe? (into what?).
+ki | with whom? | kivel
+ki | from whom? | kitől
+ki | about whom? | kiről
+ki | at whose place? | kinél
+ki | to whom (towards)? | kihez
+mi#q | with what?; by what? | mivel
+mi#q | about what? | miről
+mi#q | in what? | miben
+mi#q | into what? | mibe
+mi#q | out of what? | miből
+mi#q | on what? | min | Min gondolkodsz? = What are you thinking about?
+mi#q | onto what?; what for? | mire
+mi#q | what's the point?; what for? | minek
+mennyi | how much (does it cost)? | mennyibe | Mennyibe kerül?
+hány | what number?; what size? | hányas | Hányas cipőt hordasz? = What size shoes do you wear?
+
+#clock L3 after=time | Telling the time | Hungarian counts towards the NEXT hour: fél három = 2:30 (half of three), negyed három = 2:15, háromnegyed három = 2:45. "At" = -kor: fél hatkor.
+óra | 2:00 (two o'clock) | két óra | | kettő óra / fél kettő / két órakor
+óra | 2:30 | fél három | half of the third hour | fél kettő / negyed három / háromnegyed három
+óra | 2:15 | negyed három | a quarter of the third hour | negyed kettő / fél három / háromnegyed kettő
+óra | 2:45 | háromnegyed három | three quarters of the third hour | háromnegyed kettő / negyed három / fél három
+óra | 7:30 | fél nyolc | | fél hét / negyed nyolc / háromnegyed nyolc
+óra | 9:15 | negyed tíz | | negyed kilenc / fél tíz / háromnegyed tíz
+óra | 11:45 | háromnegyed tizenkettő | | háromnegyed tizenegy / negyed tizenkettő / fél tizenkettő
+óra | 12:30 | fél egy | | fél tizenkettő / negyed egy / háromnegyed egy
+óra | 6:15 | negyed hét | | negyed hat / fél hét / háromnegyed hét
+óra | 4:45 | háromnegyed öt | | háromnegyed négy / negyed öt / fél öt
+óra | at 8:30 | fél kilenckor | | fél nyolckor / fél kilenc / negyed kilenckor
+óra | at 10:15 | negyed tizenegykor | | negyed tízkor / negyed tizenegy / fél tizenegykor
+óra | at one o'clock | egykor | | egyre / egy óra / kettőkor
+óra | at midday | délben | | délkor / délen / éjfélkor
+
+#ordinal L3 | Ordinal numbers & dates | -dik makes ordinals: negyedik (4th), ötödik (5th). Dates use a possessive form: május elseje (1st May), március tizenötödike (15th March).
+négy | fourth | negyedik | | negyed / négyedik / negyven
+öt | fifth | ötödik | | ötik / ötöd / ötven
+hat | sixth | hatodik | | hatik / hatod / hetedik
+hét#num | seventh | hetedik | | hétedik / hatodik / hetven
+nyolc | eighth | nyolcadik | | nyolcik / nyolcad / nyolcvan
+kilenc | ninth | kilencedik | | kilencik / kilenced / kilencven
+tíz | tenth | tizedik | | tízedik / tized / tizenegy
+húsz | twentieth | huszadik | | húszadik / huszonegy / huszad
+száz | hundredth | századik | | százodik / század / százszor
+május | the first of May | május elseje | | május első / május egy / május egyedike
+március | the fifteenth of March | március tizenötödike | | március tizenöt / március tizenötödik / március ötödike
+augusztus | the twentieth of August | augusztus huszadika | | augusztus húsz / augusztus huszadik / augusztus huszonegy
+
+#post L3 after=pers | Postpositions | Words like előtt (in front of), után (after), nélkül (without) come AFTER the noun: a ház előtt. With pronouns they take personal endings: előttem, utánad, nélküle.
 ház | in front of the house | a ház előtt
 ház | behind the house | a ház mögött
 ablak | next to the window | az ablak mellett
@@ -620,7 +685,7 @@ te | in your opinion? | szerinted
 én | around me | körülöttem
 én | towards me | felém
 
-#dem L3 | ez/az + endings | "This" and "that" take endings too, and the z blends in: ez + -ben → ebben (in this), az + -ból → abból (out of that). With a noun: ebben a házban = in this house.
+#dem L3 after=in-bol,on-rol | ez/az + endings | "This" and "that" take endings too, and the z blends in: ez + -ben → ebben (in this), az + -ból → abból (out of that). With a noun: ebben a házban = in this house.
 ez | in this | ebben
 az | in that | abban
 ez | into this | ebbe
@@ -652,30 +717,30 @@ az | that much; that many | annyi
 ez | like this; this kind of | ilyen
 az | like that; that kind of | olyan
 
-#order L3 | Prefix word order | Prefixes split off and move after the verb in negatives, questions, commands and with helper verbs: Nem megyek be. · Be akarok menni. · Gyere be!
-bemegy | I'm not going in | Nem megyek be.
-bemegy | I want to go in | Be akarok menni.
-bejön | Come in! | Gyere be!
-leül | Sit down! | Ülj le!
-leül | Please sit down (formal) | Üljön le!
-felhív | Call me! | Hívj fel!
-felhív | I'll call you | Felhívlak.
-megnéz | Have a look at it! | Nézd meg!
-elmegy | Don't go away! | Ne menj el!
-elmegy | I have to leave | El kell mennem.
-megcsinál | I can't do it | Nem tudom megcsinálni.
-elfelejt | Don't forget it! | Ne felejtsd el!
-kinyit | Open it! | Nyisd ki!
-becsuk | Close the door! | Csukd be az ajtót!
-megvár | Wait for me! | Várj meg!
-visszajön | When are you coming back? | Mikor jössz vissza?
-felkel | I don't want to get up | Nem akarok felkelni.
-megmutat | Show me (it)! | Mutasd meg!
-elmond | Tell me (it)! | Mondd el!
-bekapcsol | Turn it on! | Kapcsold be!
-kikapcsol | Turn it off! | Kapcsold ki!
-megkóstol | Taste it! | Kóstold meg!
-hazamegy | I'm not going home yet | Még nem megyek haza.
+#order L3 after=pref,v-imp | Prefix word order | Prefixes split off and move after the verb in negatives, questions, commands and with helper verbs: Nem megyek be. · Be akarok menni. · Gyere be!
+bemegy | I'm not going in | Nem megyek be. | | Nem bemegyek. / Nem megyek ki. / Nem jövök be.
+bemegy | I want to go in | Be akarok menni. | | Akarok bemenni. / Be akarok jönni. / Ki akarok menni.
+bejön | Come in! | Gyere be! | | Bejöjj! / Gyere ki! / Menj be!
+leül | Sit down! | Ülj le! | | Leülj! / Állj fel! / Ülj fel!
+leül | Please sit down (formal) | Üljön le! | | Ülj le! / Leüljön! / Üljön fel!
+felhív | Call me! | Hívj fel! | | Felhívj! / Felhívlak! / Hívd fel!
+felhív | I'll call you | Felhívlak. | | Felhívsz. / Hívlak fel. / Felhívom.
+megnéz | Have a look at it! | Nézd meg! | | Megnézd! / Nézz meg! / Megnézed!
+elmegy | Don't go away! | Ne menj el! | | Ne elmenj! / Ne menj be! / Menj el!
+elmegy | I have to leave | El kell mennem. | | Kell elmennem. / El kell menned. / El kell jönnöm.
+megcsinál | I can't do it | Nem tudom megcsinálni. | | Nem tudok megcsinálni. / Nem megcsinálni tudom. / Nem tudod megcsinálni.
+elfelejt | Don't forget it! | Ne felejtsd el! | | Ne elfelejtsd! / Ne felejts el! / Ne felejtsem el!
+kinyit | Open it! | Nyisd ki! | | Kinyisd! / Nyiss ki! / Nyisd be!
+becsuk | Close the door! | Csukd be az ajtót! | | Becsukd az ajtót! / Csukj be az ajtót! / Csukd ki az ajtót!
+megvár | Wait for me! | Várj meg! | | Várd meg! / Megvárj! / Várlak meg!
+visszajön | When are you coming back? | Mikor jössz vissza? | | Mikor visszajössz? / Mikor mész vissza? / Mikor jöttél vissza?
+felkel | I don't want to get up | Nem akarok felkelni. | | Nem akarok kelni fel. / Nem akarok lefeküdni. / Nem akarsz felkelni.
+megmutat | Show me (it)! | Mutasd meg! | | Megmutasd! / Mutass meg! / Mutasd be!
+elmond | Tell me (it)! | Mondd el! | | Elmondd! / Mondj el! / Mondom el!
+bekapcsol | Turn it on! | Kapcsold be! | | Bekapcsold! / Kapcsolj be! / Kapcsold ki!
+kikapcsol | Turn it off! | Kapcsold ki! | | Kikapcsold! / Kapcsolj ki! / Kapcsold be!
+megkóstol | Taste it! | Kóstold meg! | | Megkóstold! / Kóstolj meg! / Kóstold ki!
+hazamegy | I'm not going home yet | Még nem megyek haza. | | Még nem hazamegyek. / Még nem megyek el. / Még nem jövök haza.
 
 #deriv L3 | Word building | -ás/-és turns verbs into nouns (tanulás = studying), -ó/-ő makes the doer (tanuló = student), -i makes adjectives from places and times (budapesti, mai), -s means "with/having" (sós = salty), -ság/-ség makes abstract nouns (boldogság = happiness).
 tanul | studying; learning | tanulás
@@ -726,7 +791,7 @@ igaz | truth | igazság
 nehéz | difficulty | nehézség
 egész | health | egészség | egész = whole
 
-#talan L3 | -talan/-telen: without, un- | -talan/-telen = without: szerencsétlen (unlucky), lehetetlen (impossible). -hatatlan/-hetetlen = un-…-able: hihetetlen (unbelievable).
+#talan L3 after=deriv | -talan/-telen: without, un- | -talan/-telen = without: szerencsétlen (unlucky), lehetetlen (impossible). -hatatlan/-hetetlen = un-…-able: hihetetlen (unbelievable).
 szerencse | unlucky | szerencsétlen
 lehet | impossible | lehetetlen
 remény | hopeless | reménytelen
@@ -751,7 +816,27 @@ hány | how many times? | hányszor
 száz | a hundred times | százszor
 több | several times | többször
 
-#postdir L4 | Where to / from, with postpositions | Many postpositions have "to" and "from" forms: elé (to the front of), mögé (to behind), alá (to under), mellé (to beside) — and elől, mögül, alól, mellől, közül (from).
+#habit L4 after=v-past | Usually: szokott | "Usually" is a verb in Hungarian: szoktam + infinitive (I usually…). It looks like a past tense but means the present habit: Reggel kávét szoktam inni. = I usually drink coffee in the morning.
+szokott | I usually (do something) | szoktam | | szokok / szokom / szoktunk
+szokott | you usually (do something) | szoktál | | szoksz / szokol / szoktatok
+szokott | we usually (do something) | szoktunk | | szokunk / szoktatok / szoktam
+szokott | you all usually (do something) | szoktatok | | szoktok / szoktunk / szoktál
+szokott | they usually (do something) | szoktak | | szoknak / szokják / szoktok
+szokott | I usually drink coffee | Kávét szoktam inni. | | Kávét szokok inni. / Kávét iszom szokott. / Kávét szoktál inni.
+szokott | Where do you usually go? | Hova szoktál menni? | | Hova szoksz menni? / Hova szoktam menni? / Hova mentél?
+
+#should L4 after=v-imp | Should I…? | The command form also asks "should I…?": Menjek? (Should I go?), Segítsek? (Shall I help?), Mit csináljak? (What should I do?). With a definite object: Kinyissam az ablakot?
+csinálni | What should I do? | Mit csináljak? | | Mit csinálok? / Mit csináljon? / Mit csinálsz?
+segíteni | Shall I help? | Segítsek? | | Segítek? / Segítesz? / Segítsen?
+menni | Where should I go? | Hova menjek? | | Hova megyek? / Hova menj? / Hova menjen?
+hozni | Shall I bring something? | Hozzak valamit? | | Hozok valamit? / Hozz valamit? / Hozzon valamit?
+nyitni | Shall I open the window? | Kinyissam az ablakot? | | Kinyissak az ablakot? / Kinyitottam az ablakot? / Nyisd ki az ablakot!
+mondani | What should I say? | Mit mondjak? | | Mit mondok? / Mit mondj? / Mit mondasz?
+várni | Should I wait? | Várjak? | | Várok? / Várj? / Várjon?
+fizetni | Should I pay now? | Most fizessek? | | Most fizetek? / Most fizess? / Most fizetsz?
+lenni | Have a nice day! (literally "let your day be nice") | Legyen szép napod! | | Szép napod van! / Legyél szép napod! / Lesz szép napod!
+
+#postdir L4 after=post | Where to / from, with postpositions | Many postpositions have "to" and "from" forms: elé (to the front of), mögé (to behind), alá (to under), mellé (to beside) — and elől, mögül, alól, mellől, közül (from).
 ház | (go) in front of the house | a ház elé
 ház | (go) behind the house | a ház mögé
 asztal | (put it) under the table | az asztal alá
@@ -762,7 +847,7 @@ ablak | from beside the window | az ablak mellől
 fa | from among the trees | a fák közül
 én | (sit) next to me | mellém
 
-#family L4 | -ék, -é, -né | -ék = someone and their family/group: Kovácsék (the Kovácses), Péterék (Peter and co.). -é = belonging to: Péteré (Peter's), kié? (whose?). -né = Mrs: Kovácsné.
+#family L4 after=poss | -ék, -é, -né | -ék = someone and their family/group: Kovácsék (the Kovácses), Péterék (Peter and co.). -é = belonging to: Péteré (Peter's), kié? (whose?). -né = Mrs: Kovácsné.
 Kovács | the Kovács family | Kovácsék
 Péter | Peter and his family/friends | Péterék
 szomszéd | the neighbours (the family next door) | szomszédék
@@ -772,7 +857,7 @@ anya | Mum's | anyáé
 Kovács | Mrs Kovács | Kovácsné
 Szabó | Mrs Szabó | Szabóné
 
-#gat L4 | -gat/-get: casually, repeatedly | Adds a relaxed or repeated feel: olvasgat (read a bit here and there). Sometimes the meaning shifts: beszélget (chat), hallgat (listen).
+#gat L4 after=deriv | -gat/-get: casually, repeatedly | Adds a relaxed or repeated feel: olvasgat (read a bit here and there). Sometimes the meaning shifts: beszélget (chat), hallgat (listen).
 olvas | read leisurely | olvasgat
 néz | browse; look around casually | nézeget
 ír | write now and then | írogat
@@ -782,7 +867,7 @@ kérdez | keep asking | kérdezget
 iszik | sip | iszogat
 hall | listen | hallgat | meaning shift!
 
-#tat L4 | -tat/-tet: have it done, make someone… | Causative: megcsináltatom (I'll have it fixed), etet (feed), nevettet (make laugh).
+#tat L4 after=gat | -tat/-tet: have it done, make someone… | Causative: megcsináltatom (I'll have it fixed), etet (feed), nevettet (make laugh).
 csinál | have it done or made | csináltat
 javít | have it repaired | javíttat
 mos | have it washed | mosat
@@ -791,4 +876,62 @@ iszik | give a drink to; water (animals) | itat | irregular
 nevet | make (someone) laugh | nevettet
 vár | keep (someone) waiting | várat
 ír | have it written; make (someone) write | írat
+
+#rel L5 after=qcase | Relative words (aki, ami, ahol…) | Relative words start with a-: aki (who), ami (which, that), ahol (where), amikor (when). They take endings too: akinek (to whom), akivel (with whom), amiről (about which).
+ki | who (relative): the man who… | aki
+ki | whom (relative, as object): the man whom… | akit
+ki | to whom; whose (relative) | akinek
+ki | with whom (relative) | akivel
+ki | from whom (relative) | akitől
+mi#q | which; that (relative, as object): the thing that I… | amit
+mi#q | about which (relative) | amiről
+mi#q | in which (relative) | amiben
+mi#q | with which (relative) | amivel
+hol | where (relative): the place where… | ahol
+hova | where to (relative) | ahova
+honnan | where from (relative) | ahonnan
+mikor | when (relative) | amikor
+melyik | which one (relative) | amelyik
+milyen | the kind that; as | amilyen
+mennyi | as much as | amennyi
+hogyan | the way that; as | ahogy
+
+#part L5 after=deriv | Participles: -va/-ve, -t/-tt, -ó/-ő | Verbs become adverbs and adjectives: ülve (sitting), nyitva (open), sült (fried), a megírt levél (the written letter), ijesztő (frightening).
+ül | (while) sitting | ülve
+áll | (while) standing | állva
+fekszik | (while) lying down | fekve
+nyit | open (as in "the shop is open") | nyitva
+zár | closed (as in "the shop is closed") | zárva
+fut | running (He arrived running.) | futva
+süt | fried; baked; roasted | sült
+főz | boiled; cooked | főtt
+tölt | stuffed; filled | töltött
+fagyaszt | frozen | fagyasztott
+foglal | reserved; taken | foglalt
+elromlik | broken (a broken machine) | elromlott
+megír | written (the written letter) | megírt
+elvész | lost (the lost key) | elveszett
+meglep | surprising | meglepő
+ijeszt | frightening | ijesztő
+idegesít | annoying | idegesítő
+következik | following; next | következő
+
+#minel L5 after=comp | The more…, the more… | minél + comparative … annál + comparative: Minél több, annál jobb. = The more, the better. Also: minél előbb = as soon as possible.
+sok | the more, the better | minél több, annál jobb | | minél több, annál jobban / több, annál jobb / minél jobb, annál több
+korán | as soon as possible | minél előbb | | minél később / előbb vagy utóbb / mindjárt
+gyors | as fast as possible | minél gyorsabban | | minél gyorsabb / milyen gyorsan / a leggyorsabb
+hamar | sooner or later | előbb-utóbb | | minél előbb / korán vagy későn / később-előbb
+
+#stul L6 after=val,time | -stul/-stül, -nta/-nte, -ként | -stul/-stül = together with: családostul (with the whole family). -nta/-nte = every…: naponta (daily), hetente (weekly). -ként = as: barátként (as a friend). Also -nként = per/by: egyenként (one by one), fejenként (per head).
+család | with the whole family | családostul
+kutya | together with the dog | kutyástul
+nap | daily; every day | naponta
+hét#n | weekly; every week | hetente
+hónap | monthly; every month | havonta
+év | yearly; every year | évente
+egy | one by one | egyenként
+fej | per head; per person | fejenként
+barát | as a friend | barátként
+tanár | as a teacher | tanárként
+ajándék | as a present (I got it as a present) | ajándékba | Ajándékba kaptam. = I got it as a present.
 `;

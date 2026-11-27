@@ -1,5 +1,5 @@
 // Offline support. Bump VERSION whenever any file changes so phones pick up the update.
-const VERSION = '1.0.0';
+const VERSION = '1.1.0';
 const CACHE = `szokincs-${VERSION}`;
 const ASSETS = [
   './',
@@ -8,6 +8,7 @@ const ASSETS = [
   './css/app.css',
   './js/main.js',
   './js/deck.js',
+  './js/choices.js',
   './js/scheduler.js',
   './js/store.js',
   './js/util.js',
@@ -18,6 +19,8 @@ const ASSETS = [
   './data/vocab-2.js',
   './data/vocab-3.js',
   './data/vocab-4.js',
+  './data/vocab-5.js',
+  './data/vocab-6.js',
   './data/grammar.js',
   './data/verbs.js',
   './data/confusables.js',

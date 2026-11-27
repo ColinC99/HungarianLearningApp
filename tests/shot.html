@@ -12,13 +12,12 @@
   <body>
     <iframe id="f" title="app"></iframe>
     <script type="module">
-      // Drives the real app into a given state for screenshots:  shot.html?step=revealed&theme=dark
+      // Drives the real app into a given state for screenshots:  shot.html?step=wrong&theme=dark
       const p = new URLSearchParams(location.search);
       const step = p.get('step') || 'card';
-      const settings = { theme: p.get('theme') || 'light', answerMode: step === 'typing' ? 'type' : 'flip' };
+      const settings = { theme: p.get('theme') || 'light', answerMode: step === 'typing' ? 'type' : 'choice' };
       const DAY = 864e5;
       const days = {};
-      // a little fake history so the Progress chart has something to show
       for (let i = 1; i < 14; i++) {
         const d = new Date(Date.now() - i * DAY);
         const k = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
@@ -26,7 +25,7 @@
         days[k] = [n, Math.round(n * (0.6 + 0.02 * (i % 7))), Math.round(n / 6)];
       }
       localStorage.clear();
-      localStorage.setItem('szokincs:v1', JSON.stringify({ v: 1, cards: {}, log: [], days: step === 'stats' ? days : {}, settings }));
+      localStorage.setItem('szokincs:v1', JSON.stringify({ v: 1, cards: {}, log: [], days: step === 'stats' ? days : {}, mix: {}, settings }));
       const f = document.getElementById('f');
       const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
       f.src = '../index.html';
@@ -35,7 +34,7 @@
         const $ = (s) => d.querySelector(s);
         const $$ = (s) => [...d.querySelectorAll(s)];
         for (let i = 0; i < 40 && !$('.card'); i++) await sleep(50);
-        const grades = ['.btn.good', '.btn.missed', '.btn.easy', '.btn.good', '.btn.good', '.btn.missed', '.btn.easy'];
+        // Answer n cards: pick options in a rotating pattern, sometimes "Too easy".
         const answerN = async (n, until) => {
           for (let i = 0; i < n; i++) {
             if (until && until()) return true;
@@ -44,54 +43,51 @@
               inp.value = 'x';
               inp.dispatchEvent(new Event('input'));
               $('.type-row .btn').click();
-              await sleep(2);
-              $('.actions .btn').click();
-            } else {
-              $('.btn.primary.big').click();
-              await sleep(2);
-              $(grades[i % grades.length]).click();
-            }
+            } else $$('.option')[i % 4].click();
+            await sleep(2);
+            const links = $$('.next-row .mini');
+            if (i % 3 === 0 && links.length) links[0].click();
+            else $('.actions .next').click();
             await sleep(2);
           }
           return until ? until() : true;
         };
-        if (step === 'revealed') {
-          await answerN(14);
-          $('.btn.primary.big').click();
-        } else if (step === 'conj') {
-          await answerN(400, () => $('.kind') && /Conjugate|Make the form/.test($('.kind').textContent));
-          $('.btn.primary.big').click();
-        } else if (step === 'ident') {
-          await answerN(400, () => $('.kind') && /What does it mean/.test($('.kind').textContent));
-          $('.btn.primary.big').click();
+        const kind = () => ($('.kind') ? $('.kind').textContent : '');
+        if (step === 'wrong' || step === 'right') {
+          await answerN(Number(p.get('n') || 12));
+          for (let k = 0; k < 40; k++) {
+            $$('.option')[k % 4].click();
+            await sleep(3);
+            const wasWrong = !!$('.option.wrong');
+            if ((step === 'wrong') === wasWrong) break;
+            $('.actions .next').click();
+            await sleep(3);
+          }
+        } else if (step === 'conj' || step === 'ident' || step === 'make') {
+          const want = { conj: /Conjugate/, ident: /What does it mean/, make: /Make the form/ }[step];
+          await answerN(600, () => want.test(kind()));
+          if (p.get('answer')) {
+            $$('.option')[1].click();
+          }
         } else if (step === 'typing') {
           await answerN(200, () => !!$('#answer-input'));
           const inp = $('#answer-input');
-          inp.value = (p.get('typed') || 'kerek');
+          inp.value = p.get('typed') || 'kerek';
           inp.dispatchEvent(new Event('input'));
           if (p.get('submit')) $('.type-row .btn').click();
         } else if (step === 'stats') {
           await answerN(70);
           $$('.tab')[1].click();
-        } else if (step === 'words') {
-          await answerN(50);
-          $$('.tab')[2].click();
           await sleep(30);
-          $$('.wrow')[2].click();
+          if (p.get('scroll')) d.querySelector('.screen').scrollTop = Number(p.get('scroll'));
         } else if (step === 'grammar') {
-          await answerN(30);
+          await answerN(40);
           $$('.tab')[2].click();
           await sleep(30);
           $$('.seg-ctl button')[1].click();
           await sleep(30);
-          $$('.grow')[13].click();
         } else if (step === 'settings') {
           $$('.tab')[3].click();
-        } else if (step === 'mistakes') {
-          await answerN(30);
-          $$('.mode')[1].click();
-          await sleep(10);
-          $('.btn.primary.big') && $('.btn.primary.big').click();
         }
         await sleep(100);
         document.title = 'ready';
