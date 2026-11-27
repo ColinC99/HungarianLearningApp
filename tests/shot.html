@@ -1,0 +1,101 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>Szókincs screenshot harness</title>
+    <style>
+      html, body { margin: 0; height: 100%; overflow: hidden; }
+      /* Exactly a Pixel 6a viewport (desktop Chrome can't make windows this narrow). */
+      iframe { border: 0; width: 412px; height: 915px; display: block; }
+    </style>
+  </head>
+  <body>
+    <iframe id="f" title="app"></iframe>
+    <script type="module">
+      // Drives the real app into a given state for screenshots:  shot.html?step=revealed&theme=dark
+      const p = new URLSearchParams(location.search);
+      const step = p.get('step') || 'card';
+      const settings = { theme: p.get('theme') || 'light', answerMode: step === 'typing' ? 'type' : 'flip' };
+      const DAY = 864e5;
+      const days = {};
+      // a little fake history so the Progress chart has something to show
+      for (let i = 1; i < 14; i++) {
+        const d = new Date(Date.now() - i * DAY);
+        const k = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+        const n = [0, 35, 52, 61, 0, 48, 70, 55, 40, 66, 58, 0, 45][i] || 0;
+        days[k] = [n, Math.round(n * (0.6 + 0.02 * (i % 7))), Math.round(n / 6)];
+      }
+      localStorage.clear();
+      localStorage.setItem('szokincs:v1', JSON.stringify({ v: 1, cards: {}, log: [], days: step === 'stats' ? days : {}, settings }));
+      const f = document.getElementById('f');
+      const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+      f.src = '../index.html';
+      f.onload = async () => {
+        const d = f.contentDocument;
+        const $ = (s) => d.querySelector(s);
+        const $$ = (s) => [...d.querySelectorAll(s)];
+        for (let i = 0; i < 40 && !$('.card'); i++) await sleep(50);
+        const grades = ['.btn.good', '.btn.missed', '.btn.easy', '.btn.good', '.btn.good', '.btn.missed', '.btn.easy'];
+        const answerN = async (n, until) => {
+          for (let i = 0; i < n; i++) {
+            if (until && until()) return true;
+            const inp = $('#answer-input');
+            if (inp) {
+              inp.value = 'x';
+              inp.dispatchEvent(new Event('input'));
+              $('.type-row .btn').click();
+              await sleep(2);
+              $('.actions .btn').click();
+            } else {
+              $('.btn.primary.big').click();
+              await sleep(2);
+              $(grades[i % grades.length]).click();
+            }
+            await sleep(2);
+          }
+          return until ? until() : true;
+        };
+        if (step === 'revealed') {
+          await answerN(14);
+          $('.btn.primary.big').click();
+        } else if (step === 'conj') {
+          await answerN(400, () => $('.kind') && /Conjugate|Make the form/.test($('.kind').textContent));
+          $('.btn.primary.big').click();
+        } else if (step === 'ident') {
+          await answerN(400, () => $('.kind') && /What does it mean/.test($('.kind').textContent));
+          $('.btn.primary.big').click();
+        } else if (step === 'typing') {
+          await answerN(200, () => !!$('#answer-input'));
+          const inp = $('#answer-input');
+          inp.value = (p.get('typed') || 'kerek');
+          inp.dispatchEvent(new Event('input'));
+          if (p.get('submit')) $('.type-row .btn').click();
+        } else if (step === 'stats') {
+          await answerN(70);
+          $$('.tab')[1].click();
+        } else if (step === 'words') {
+          await answerN(50);
+          $$('.tab')[2].click();
+          await sleep(30);
+          $$('.wrow')[2].click();
+        } else if (step === 'grammar') {
+          await answerN(30);
+          $$('.tab')[2].click();
+          await sleep(30);
+          $$('.seg-ctl button')[1].click();
+          await sleep(30);
+          $$('.grow')[13].click();
+        } else if (step === 'settings') {
+          $$('.tab')[3].click();
+        } else if (step === 'mistakes') {
+          await answerN(30);
+          $$('.mode')[1].click();
+          await sleep(10);
+          $('.btn.primary.big') && $('.btn.primary.big').click();
+        }
+        await sleep(100);
+        document.title = 'ready';
+      };
+    </script>
+  </body>
+</html>

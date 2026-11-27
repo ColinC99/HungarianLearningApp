@@ -1,0 +1,21 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="0.4" y2="1">
+      <stop offset="0" stop-color="#33946a"/>
+      <stop offset="1" stop-color="#1b5640"/>
+    </linearGradient>
+    <filter id="sh" x="-30%" y="-30%" width="160%" height="160%">
+      <feDropShadow dx="0" dy="12" stdDeviation="14" flood-color="#06281c" flood-opacity="0.38"/>
+    </filter>
+  </defs>
+  <rect id="tile" width="512" height="512" rx="116" fill="url(#bg)"/>
+  <g id="art" transform="translate(256 262)">
+    <g transform="rotate(11) translate(40 -8)">
+      <rect x="-112" y="-146" width="224" height="292" rx="32" fill="#c63d4b" filter="url(#sh)"/>
+    </g>
+    <g transform="rotate(-7) translate(-26 6)">
+      <rect x="-112" y="-146" width="224" height="292" rx="32" fill="#fffdf8" filter="url(#sh)"/>
+      <text x="0" y="78" text-anchor="middle" font-family="Georgia, 'Times New Roman', serif" font-weight="700" font-size="250" fill="#1c2421">ő</text>
+    </g>
+  </g>
+</svg>
